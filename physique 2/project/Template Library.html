@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physique — Template Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="physique-tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #16171c 0%, #0b0b0d 55%, #060607 100%);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  #stage { transform-origin: center center; }
+  .pq-root, .pq-root * { -webkit-font-smoothing: antialiased; }
+  .pq-root button { font-family: inherit; }
+  .pq-root input { font-family: inherit; }
+
+  @keyframes pqUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pqSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="root"></div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- shared mock data + program library (plain JS, run first) -->
+  <script src="app/data.js"></script>
+  <script src="app/program-data.js"></script>
+
+  <!-- frame, tweaks, primitives, then the exploration (Babel JSX) -->
+  <script type="text/babel" src="frames/ios-frame.jsx"></script>
+  <script type="text/babel" src="frames/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="app/ui.jsx"></script>
+  <script type="text/babel" src="app/templates.jsx"></script>
+
+  <!-- fit-to-viewport scaler -->
+  <script>
+    function fit() {
+      const stage = document.getElementById('stage');
+      const W = 402, H = 874, m = 24;
+      const s = Math.min(1, (window.innerWidth - m) / W, (window.innerHeight - m) / H);
+      stage.style.transform = 'scale(' + s + ')';
+    }
+    window.addEventListener('resize', fit);
+    fit(); setTimeout(fit, 300);
+  </script>
+</body>
+</html>

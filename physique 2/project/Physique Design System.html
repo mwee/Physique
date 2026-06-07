@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physique — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="physique-tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    transition: background .3s ease, color .3s ease;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 48px 140px; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .topbar-inner {
+    max-width: 1160px; margin: 0 auto; padding: 16px 48px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--accent);
+    display: grid; place-items: center;
+    box-shadow: 0 4px 14px var(--accent-soft);
+  }
+  .brand .name {
+    font-weight: 700; font-size: 19px; letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .spacer { flex: 1; }
+  .swatches { display: flex; gap: 8px; }
+  .swatches button {
+    width: 26px; height: 26px; border-radius: 999px; border: 2px solid var(--hairline);
+    cursor: pointer; padding: 0; transition: transform .12s ease;
+  }
+  .swatches button[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 2px; }
+  .swatches button:hover { transform: scale(1.1); }
+  .seg {
+    display: flex; background: var(--surface-2); border-radius: 999px; padding: 3px;
+    border: 1px solid var(--hairline);
+  }
+  .seg button {
+    border: 0; background: transparent; color: var(--text-2);
+    font-family: var(--font); font-size: 13px; font-weight: 600;
+    padding: 6px 14px; border-radius: 999px; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 88px 0 56px; max-width: 760px; }
+  .eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+  .hero h1 { font-size: 64px; line-height: 1.02; letter-spacing: -0.03em; margin: 18px 0 0; font-weight: 700; }
+  .hero h1 .light { font-weight: 300; color: var(--text-2); }
+  .hero p { font-size: 19px; line-height: 1.5; color: var(--text-2); margin: 22px 0 0; max-width: 600px; }
+
+  /* ---------- section scaffolding ---------- */
+  section { padding-top: 72px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; border-bottom: 1px solid var(--hairline); padding-bottom: 14px; }
+  .sec-head .n { font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--text-3); font-size: 14px; font-weight: 600; width: 34px; }
+  .sec-head h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; margin: 0; color: var(--text-2); }
+  .grid { display: grid; gap: 16px; }
+
+  .card {
+    background: var(--surface); border-radius: var(--r-lg); padding: var(--s6);
+    box-shadow: var(--shadow); border: 1px solid var(--hairline);
+  }
+  .card-label { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); font-weight: 600; margin-bottom: 16px; }
+
+  /* color */
+  .ramp { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .chip { border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--hairline); }
+  .chip .sw { height: 64px; }
+  .chip .meta { padding: 9px 10px; background: var(--surface); }
+  .chip .cn { font-size: 12px; font-weight: 600; }
+  .chip .cv { font-size: 11px; color: var(--text-3); font-family: var(--font-num); margin-top: 2px; }
+
+  .expressive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .exp { border-radius: var(--r-md); padding: 18px; color: #fff; min-height: 96px; display: flex; flex-direction: column; justify-content: space-between; }
+  .exp .lab { font-size: 12px; opacity: .8; font-weight: 600; }
+  .exp .hex { font-family: var(--font-num); font-size: 14px; font-weight: 600; }
+
+  /* type */
+  .type-row { display: flex; align-items: baseline; gap: 24px; padding: 16px 0; border-bottom: 1px solid var(--hairline); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .meta { width: 150px; flex-shrink: 0; }
+  .type-row .meta .nm { font-size: 13px; font-weight: 600; }
+  .type-row .meta .sp { font-size: 11px; color: var(--text-3); font-family: var(--font-num); margin-top: 2px; }
+  .type-row .samp { color: var(--text); }
+
+  /* spacing & radius */
+  .spaces { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .space-b { text-align: center; }
+  .space-b .bar { background: var(--accent); border-radius: 3px; margin: 0 auto 8px; }
+  .space-b .lab { font-size: 11px; color: var(--text-3); font-family: var(--font-num); }
+  .radii { display: flex; gap: 18px; flex-wrap: wrap; }
+  .radius-b { text-align: center; }
+  .radius-b .sq { width: 72px; height: 72px; background: var(--surface-2); border: 1.5px solid var(--accent); margin-bottom: 8px; }
+  .radius-b .lab { font-size: 11px; color: var(--text-3); font-family: var(--font-num); }
+
+  /* components */
+  .comp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; align-items: start; }
+  .btn {
+    font-family: var(--font); font-weight: 600; font-size: 16px;
+    border-radius: var(--r-sm); padding: 13px 20px; border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: filter .15s ease, background .15s ease; width: 100%;
+  }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary { background: var(--accent-soft); color: var(--accent); }
+  .btn-ghost { background: var(--surface-2); color: var(--text); }
+  .btn-destructive { background: var(--danger-soft); color: var(--danger); }
+  .btn-row { display: flex; flex-direction: column; gap: 12px; }
+
+  .badges { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .badge { font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: var(--r-xs); display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-num); }
+  .b-w { color: var(--warmup); background: var(--pr-soft); }
+  .b-set { color: var(--text-2); background: var(--surface-2); }
+  .b-pr { color: var(--pr); background: var(--pr-soft); }
+  .b-drop { color: var(--accent); background: var(--accent-soft); }
+
+  /* set table */
+  .settable { background: var(--surface); border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--hairline); }
+  .st-ex { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+  .st-ex .nm { color: var(--accent); font-weight: 700; font-size: 16px; }
+  .st-head, .st-row { display: grid; grid-template-columns: 34px 1fr 64px 56px 40px; align-items: center; gap: 6px; padding: 0 16px; }
+  .st-head { height: 34px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); font-weight: 600; }
+  .st-row { height: 50px; font-size: 16px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+  .st-row.done { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .st-row .si { font-weight: 700; }
+  .st-row .si.w { color: var(--warmup); }
+  .st-row .prev { color: var(--text-3); }
+  .st-row .val { background: var(--surface-2); border-radius: var(--r-xs); padding: 7px 0; text-align: center; font-weight: 600; }
+  .st-row.done .val { background: transparent; }
+  .check { width: 30px; height: 30px; border-radius: var(--r-xs); display: grid; place-items: center; margin-left: auto; }
+  .check.on { background: var(--accent); }
+  .check.off { background: var(--surface-2); }
+
+  /* tab bar */
+  .tabbar { display: flex; justify-content: space-around; padding: 12px 8px; background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(18px); border-radius: var(--r-lg); border: 1px solid var(--hairline); }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 10px; font-weight: 600; }
+  .tab.active { color: var(--accent); }
+
+  /* keypad */
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 280px; }
+  .key { background: var(--surface-2); border-radius: var(--r-sm); height: 52px; display: grid; place-items: center; font-size: 22px; font-weight: 500; font-family: var(--font-num); cursor: pointer; }
+  .key.accent { background: var(--accent); color: var(--on-accent); }
+
+  /* chart */
+  .chart-card { background: var(--surface); border-radius: var(--r-lg); padding: var(--s6); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
+  .chart-card h4 { margin: 0; font-size: 14px; color: var(--text-2); font-weight: 600; }
+  .chart-card .big { font-size: 34px; font-weight: 700; font-family: var(--font-num); margin: 6px 0 2px; letter-spacing: -.02em; }
+  .chart-card .delta { color: var(--success); font-size: 13px; font-weight: 600; }
+
+  .footplate { margin-top: 90px; padding-top: 28px; border-top: 1px solid var(--hairline); color: var(--text-3); font-size: 13px; display: flex; justify-content: space-between; }
+
+  .note { color: var(--text-2); font-size: 14px; line-height: 1.6; max-width: 620px; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pill-rest { display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: var(--on-accent); padding: 10px 16px 10px 14px; border-radius: 999px; font-weight: 600; font-family: var(--font-num); box-shadow: 0 6px 20px var(--accent-soft); }
+</style>
+</head>
+<body data-theme="dark" style="--accent:#3B82F6;">
+<div class="root" id="root">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 15.5L7.2 8.2L10.4 11.6L16.5 4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="16.6" cy="4" r="1.7" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="name">Physique</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="swatches" id="swatches"></div>
+      <div class="seg" id="themeSeg">
+        <button data-theme-btn="light">Light</button>
+        <button data-theme-btn="dark" aria-pressed="true">Dark</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="hero">
+      <div class="eyebrow">Design System</div>
+      <h1>Lift with<br><span class="light">intention.</span></h1>
+      <p>Physique is a premium, dark-first logbook for serious lifters. The system is quiet by default and loud only where it matters — the weight you moved, the record you broke, the trend that says you're due for a PR.</p>
+    </div>
+
+    <!-- 01 PRINCIPLES -->
+    <section>
+      <div class="sec-head"><span class="n num">01</span><h2>Principles</h2></div>
+      <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="card">
+          <div class="card-label">Speed first</div>
+          <div class="note">Logging a set is under three taps. Numbers pre-fill from history; the keypad is one thumb-reach away. Chrome recedes so data leads.</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Quiet luxury</div>
+          <div class="note">Near-black surfaces, hairline borders, one confident accent. No gradients in chrome, no decoration that isn't earning its place.</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Progress is the point</div>
+          <div class="note">Estimated 1RM, volume and plateau signals are surfaced without asking. Records are celebrated in gold — the only warm note in the palette.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 COLOR -->
+    <section>
+      <div class="sec-head"><span class="n num">02</span><h2>Color · Neutrals</h2></div>
+      <div class="card">
+        <div class="card-label">Surface ramp · adapts to theme</div>
+        <div class="ramp" id="ramp"></div>
+      </div>
+      <div style="height:20px;"></div>
+      <div class="card">
+        <div class="card-label">Expressive — used sparingly</div>
+        <div class="expressive">
+          <div class="exp" style="background:var(--accent);"><span class="lab">Accent</span><span class="hex" id="accentHex">#3B82F6</span></div>
+          <div class="exp" style="background:var(--pr);"><span class="lab">PR · Gold</span><span class="hex">#E0A43B</span></div>
+          <div class="exp" style="background:var(--success);"><span class="lab">Success</span><span class="hex">#22C55E</span></div>
+          <div class="exp" style="background:var(--danger);"><span class="lab">Danger</span><span class="hex">#FF453A</span></div>
+        </div>
+        <div class="note" style="margin-top:16px;">The accent is tunable per install (top-right). Completion checks fill with accent; personal records glow gold. Everything else is neutral.</div>
+      </div>
+    </section>
+
+    <!-- 03 TYPE -->
+    <section>
+      <div class="sec-head"><span class="n num">03</span><h2>Typography</h2></div>
+      <div class="card">
+        <div class="card-label">SF Pro · numerals always tabular</div>
+        <div class="type-row"><div class="meta"><div class="nm">Hero numeral</div><div class="sp num">60 / 700 / tnum</div></div><div class="samp num" style="font-size:60px;font-weight:700;letter-spacing:-.03em;line-height:1;">142.5</div></div>
+        <div class="type-row"><div class="meta"><div class="nm">Title 1</div><div class="sp num">30 / 700</div></div><div class="samp" style="font-size:30px;font-weight:700;letter-spacing:-.02em;">Morning Workout</div></div>
+        <div class="type-row"><div class="meta"><div class="nm">Title 2 · light</div><div class="sp num">24 / 300</div></div><div class="samp" style="font-size:24px;font-weight:300;">This week's volume</div></div>
+        <div class="type-row"><div class="meta"><div class="nm">Body</div><div class="sp num">15 / 400</div></div><div class="samp" style="font-size:15px;">Auto-filled from your last session so you rarely type a number.</div></div>
+        <div class="type-row"><div class="meta"><div class="nm">Caption</div><div class="sp num">12 / 600 · upper</div></div><div class="samp" style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);">Previous · 137 kg × 5</div></div>
+      </div>
+    </section>
+
+    <!-- 04 SPACING / RADIUS -->
+    <section>
+      <div class="sec-head"><span class="n num">04</span><h2>Spacing · Radius · Elevation</h2></div>
+      <div class="twocol">
+        <div class="card">
+          <div class="card-label">4-point spacing scale</div>
+          <div class="spaces" id="spaces"></div>
+        </div>
+        <div class="card">
+          <div class="card-label">Corner radius</div>
+          <div class="radii" id="radii"></div>
+        </div>
+      </div>
+      <div style="height:20px;"></div>
+      <div class="card">
+        <div class="card-label">Elevation</div>
+        <div style="display:flex; gap:24px; flex-wrap:wrap;">
+          <div style="background:var(--surface-2);border-radius:var(--r-md);width:150px;height:84px;box-shadow:var(--shadow-sm);display:grid;place-items:center;font-size:12px;color:var(--text-3);font-weight:600;">sm</div>
+          <div style="background:var(--surface);border-radius:var(--r-md);width:150px;height:84px;box-shadow:var(--shadow);display:grid;place-items:center;font-size:12px;color:var(--text-3);font-weight:600;">card</div>
+          <div style="background:var(--surface);border-radius:var(--r-md);width:150px;height:84px;box-shadow:var(--shadow-lg);display:grid;place-items:center;font-size:12px;color:var(--text-3);font-weight:600;">lg · modal</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 COMPONENTS -->
+    <section>
+      <div class="sec-head"><span class="n num">05</span><h2>Components</h2></div>
+      <div class="comp-grid">
+
+        <div class="card">
+          <div class="card-label">Buttons</div>
+          <div class="btn-row">
+            <button class="btn btn-primary">Start workout</button>
+            <button class="btn btn-secondary">Add exercises</button>
+            <button class="btn btn-ghost">Add set</button>
+            <button class="btn btn-destructive">Cancel workout</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Badges & set types</div>
+          <div class="badges" style="margin-bottom:18px;">
+            <span class="badge b-w">W</span>
+            <span class="badge b-set">1</span>
+            <span class="badge b-set">2</span>
+            <span class="badge b-drop">DROP</span>
+            <span class="badge b-pr">★ PR</span>
+          </div>
+          <div class="card-label" style="margin-top:8px;">Rest timer</div>
+          <div class="pill-rest">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="9" r="6" stroke="#fff" stroke-width="1.6"/><path d="M8 9V6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M6 1.5h4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span class="num">1:30</span>
+          </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-label">Set table — the signature component</div>
+          <div class="settable">
+            <div class="st-ex"><span class="nm">Deadlift</span><span style="color:var(--text-3);">···</span></div>
+            <div class="st-head"><span>Set</span><span>Previous</span><span style="text-align:center;">kg</span><span style="text-align:center;">Reps</span><span></span></div>
+            <div class="st-row done"><span class="si w">W</span><span class="prev">60 × 5</span><span class="val">60</span><span class="val">5</span><span class="check on"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+            <div class="st-row done"><span class="si">1</span><span class="prev">100 × 3</span><span class="val">100</span><span class="val">3</span><span class="check on"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+            <div class="st-row"><span class="si">2</span><span class="prev">137 × 5</span><span class="val">130</span><span class="val">5</span><span class="check off"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" stroke="var(--text-3)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Numeric keypad</div>
+          <div class="keypad">
+            <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+            <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+            <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+            <div class="key">.</div><div class="key">0</div><div class="key accent">✓</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Tab bar</div>
+          <div class="tabbar">
+            <div class="tab active">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v8a2 2 0 01-2 2h-3v-6H8v6H5a2 2 0 01-2-2v-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              Home
+            </div>
+            <div class="tab">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              History
+            </div>
+            <div class="tab">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5l11 11M4 9l-1.5-1.5M9 4L7.5 2.5M20 15l1.5 1.5M15 20l1.5 1.5M5 12l7-7 7 7-7 7-7-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Exercises
+            </div>
+            <div class="tab">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 15l5-5 4 3 7-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Progress
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 06 PROGRESS / CHARTS -->
+    <section>
+      <div class="sec-head"><span class="n num">06</span><h2>Progress insight — the wedge</h2></div>
+      <div class="twocol">
+        <div class="chart-card">
+          <h4>Estimated 1RM · Deadlift</h4>
+          <div class="big num">182<span style="font-size:18px;color:var(--text-3);font-weight:600;"> kg</span></div>
+          <div class="delta">▲ 6.5 kg in 8 weeks</div>
+          <svg viewBox="0 0 320 120" style="width:100%;height:120px;margin-top:14px;" id="lineChart"></svg>
+        </div>
+        <div class="chart-card">
+          <h4>Weekly volume</h4>
+          <div class="big num">28.4k<span style="font-size:18px;color:var(--text-3);font-weight:600;"> kg</span></div>
+          <div class="delta">▲ on track for a PR week</div>
+          <svg viewBox="0 0 320 120" style="width:100%;height:120px;margin-top:14px;" id="barChart"></svg>
+        </div>
+      </div>
+      <div style="height:20px;"></div>
+      <div class="card" style="display:flex;gap:16px;align-items:center;border-left:3px solid var(--pr);">
+        <div style="width:44px;height:44px;border-radius:12px;background:var(--pr-soft);display:grid;place-items:center;flex-shrink:0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16l-5.1 2.7 1-5.7-4.1-4 5.7-.8L12 3z" fill="var(--pr)"/></svg>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:16px;">You're due for a PR</div>
+          <div class="note" style="margin-top:2px;">Bench press 1RM has climbed 3 sessions straight and you've out-rested last week. Physique flags the nudge — no asking required.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footplate">
+      <span>Physique Design System · v1.0</span>
+      <span class="num">IBM Plex / SF Pro · 4pt grid · OLED-first</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const root = document.getElementById('root');
+  const body = document.body;
+  const ACCENTS = {
+    blue:   { dark:'#3B82F6', light:'#2563EB' },
+    orange: { dark:'#FB923C', light:'#EA580C' },
+    violet: { dark:'#A78BFA', light:'#7C3AED' },
+    green:  { dark:'#34D399', light:'#16A34A' },
+  };
+  let theme = 'dark', accent = 'blue';
+
+  function apply() {
+    body.setAttribute('data-theme', theme);
+    const hex = ACCENTS[accent][theme];
+    body.style.setProperty('--accent', hex);
+    document.getElementById('accentHex').textContent = hex.toUpperCase();
+    document.querySelectorAll('#themeSeg button').forEach(b =>
+      b.setAttribute('aria-pressed', b.dataset.themeBtn === theme));
+    document.querySelectorAll('#swatches button').forEach(b =>
+      b.setAttribute('aria-pressed', b.dataset.acc === accent));
+  }
+
+  // swatches
+  const sw = document.getElementById('swatches');
+  Object.keys(ACCENTS).forEach(k => {
+    const b = document.createElement('button');
+    b.dataset.acc = k;
+    b.style.background = ACCENTS[k].dark;
+    b.onclick = () => { accent = k; apply(); };
+    sw.appendChild(b);
+  });
+  document.querySelectorAll('#themeSeg button').forEach(b =>
+    b.onclick = () => { theme = b.dataset.themeBtn; apply(); });
+
+  // neutral ramp
+  const ramps = [
+    ['--bg','bg'], ['--surface','surface'], ['--surface-2','surface-2'],
+    ['--surface-3','surface-3'], ['--text-2','text-2'], ['--text','text'],
+  ];
+  const ramp = document.getElementById('ramp');
+  ramps.forEach(([v,n]) => {
+    const c = document.createElement('div'); c.className='chip';
+    c.innerHTML = `<div class="sw" style="background:var(${v});border-bottom:1px solid var(--hairline);"></div><div class="meta"><div class="cn">${n}</div><div class="cv">var(${v})</div></div>`;
+    ramp.appendChild(c);
+  });
+
+  // spacing
+  const spaces = document.getElementById('spaces');
+  [['1',4],['2',8],['3',12],['4',16],['5',20],['6',24],['8',32],['10',40]].forEach(([n,px])=>{
+    const b=document.createElement('div'); b.className='space-b';
+    b.innerHTML = `<div class="bar" style="width:${px}px;height:${px}px;"></div><div class="lab">${px}</div>`;
+    spaces.appendChild(b);
+  });
+
+  // radii
+  const radii = document.getElementById('radii');
+  [['xs','var(--r-xs)'],['sm','var(--r-sm)'],['md','var(--r-md)'],['lg','var(--r-lg)'],['xl','var(--r-xl)']].forEach(([n,v])=>{
+    const b=document.createElement('div'); b.className='radius-b';
+    b.innerHTML = `<div class="sq" style="border-radius:${v};"></div><div class="lab">${n}</div>`;
+    radii.appendChild(b);
+  });
+
+  // line chart
+  (function(){
+    const pts = [28,34,31,40,46,44,52,60,58,68];
+    const w=320,h=120,pad=8;
+    const max=Math.max(...pts), min=Math.min(...pts);
+    const xs = i => pad + i*(w-2*pad)/(pts.length-1);
+    const ys = v => h-pad - (v-min)/(max-min)*(h-2*pad);
+    let d='', area='';
+    pts.forEach((v,i)=>{ const x=xs(i),y=ys(v); d+=(i?'L':'M')+x+' '+y+' '; });
+    area = d + `L ${xs(pts.length-1)} ${h} L ${xs(0)} ${h} Z`;
+    document.getElementById('lineChart').innerHTML =
+      `<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+       <path d="${area}" fill="url(#lg)"/>
+       <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+       <circle cx="${xs(pts.length-1)}" cy="${ys(pts[pts.length-1])}" r="4" fill="var(--accent)"/>`;
+  })();
+
+  // bar chart
+  (function(){
+    const vals=[18,22,20,26,24,28,25,30];
+    const w=320,h=120,pad=8,gap=10;
+    const bw=(w-2*pad-gap*(vals.length-1))/vals.length;
+    const max=Math.max(...vals);
+    let html='';
+    vals.forEach((v,i)=>{
+      const bh=(v/max)*(h-2*pad); const x=pad+i*(bw+gap); const y=h-pad-bh;
+      const last=i===vals.length-1;
+      html+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="4" fill="${last?'var(--accent)':'var(--surface-3)'}"/>`;
+    });
+    document.getElementById('barChart').innerHTML=html;
+  })();
+
+  apply();
+</script>
+</body>
+</html>

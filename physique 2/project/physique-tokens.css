@@ -1,0 +1,104 @@
+/* ============================================================
+   PHYSIQUE — Design Tokens
+   Dark-first, premium iOS lifting app.
+   Drives both the design-system page and the prototype.
+   Theme is set via [data-theme="light"|"dark"] on a container.
+   Accent / corner / density are injected at runtime via inline
+   --accent, --r-scale, --d-scale on the same container.
+   ============================================================ */
+
+:root {
+  /* ---- Spacing (4pt grid, multiplied by --d-scale) ---- */
+  --d-scale: 1;
+  --s1: calc(4px  * var(--d-scale));
+  --s2: calc(8px  * var(--d-scale));
+  --s3: calc(12px * var(--d-scale));
+  --s4: calc(16px * var(--d-scale));
+  --s5: calc(20px * var(--d-scale));
+  --s6: calc(24px * var(--d-scale));
+  --s8: calc(32px * var(--d-scale));
+  --s10: calc(40px * var(--d-scale));
+
+  /* ---- Radius (scaled by --r-scale) ---- */
+  --r-scale: 1;
+  --r-xs: calc(6px  * var(--r-scale));
+  --r-sm: calc(10px * var(--r-scale));
+  --r-md: calc(14px * var(--r-scale));
+  --r-lg: calc(20px * var(--r-scale));
+  --r-xl: calc(28px * var(--r-scale));
+  --r-full: 999px;
+
+  /* ---- Type ---- */
+  --font: -apple-system, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+  --font-num: var(--font);
+  --font-display: var(--font);
+  --fw-reg: 400;
+  --fw-med: 500;
+  --fw-sb: 600;
+  --fw-b: 700;
+
+  /* type scale */
+  --t-caption: 11px;
+  --t-footnote: 12px;
+  --t-sub: 13px;
+  --t-body: 15px;
+  --t-callout: 17px;
+  --t-title3: 20px;
+  --t-title2: 24px;
+  --t-title1: 30px;
+  --t-display: 44px;
+  --t-hero: 60px;
+
+  /* ---- Brand expressive colors (theme-independent base, tuned per theme) ---- */
+  --accent: #2563EB;        /* injected at runtime */
+  --on-accent: #FFFFFF;
+  --pr: #E0A43B;            /* personal-record gold */
+  --pr-soft: rgba(224,164,59,0.16);
+  --success: #22C55E;
+  --danger: #FF453A;
+  --danger-soft: rgba(255,69,58,0.14);
+
+  /* warmup badge */
+  --warmup: #E0A43B;
+}
+
+/* ===================== LIGHT ===================== */
+:root,
+[data-theme="light"] {
+  --bg: #F3F3F5;
+  --surface: #FFFFFF;
+  --surface-2: #EDEDF1;
+  --surface-3: #E4E4EA;
+  --hairline: rgba(0,0,0,0.08);
+  --hairline-strong: rgba(0,0,0,0.14);
+  --text: #0A0A0C;
+  --text-2: rgba(12,12,16,0.56);
+  --text-3: rgba(12,12,16,0.34);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-tint: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 10px 28px rgba(0,0,0,0.07);
+  --shadow-lg: 0 2px 6px rgba(0,0,0,0.06), 0 24px 60px rgba(0,0,0,0.12);
+  --scrim: rgba(20,20,28,0.32);
+  color-scheme: light;
+}
+
+/* ===================== DARK ===================== */
+[data-theme="dark"] {
+  --bg: #08080A;
+  --surface: #151518;
+  --surface-2: #1E1E22;
+  --surface-3: #29292F;
+  --hairline: rgba(255,255,255,0.08);
+  --hairline-strong: rgba(255,255,255,0.16);
+  --text: #FAFAFA;
+  --text-2: rgba(255,255,255,0.58);
+  --text-3: rgba(255,255,255,0.32);
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
+  --accent-tint: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow: 0 1px 2px rgba(0,0,0,0.45), 0 14px 34px rgba(0,0,0,0.5);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.5), 0 28px 64px rgba(0,0,0,0.6);
+  --scrim: rgba(0,0,0,0.55);
+  color-scheme: dark;
+}

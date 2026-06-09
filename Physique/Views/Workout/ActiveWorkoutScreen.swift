@@ -130,11 +130,13 @@ struct ActiveWorkoutScreen: View {
             wk.startWorkout(
                 name: appCoordinator.pendingWorkoutName ?? "Quick Workout",
                 exercises: appCoordinator.pendingExercises ?? [],
-                coached: appCoordinator.pendingCoached
+                coached: appCoordinator.pendingCoached,
+                coachPlanDayId: appCoordinator.pendingCoachPlanDayId
             )
             appCoordinator.pendingWorkoutName = nil
             appCoordinator.pendingExercises = nil
             appCoordinator.pendingCoached = false
+            appCoordinator.pendingCoachPlanDayId = nil
         }
         .sheet(isPresented: $showExercisePicker) {
             ExercisePickerSheet { exercise in

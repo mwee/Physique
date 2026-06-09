@@ -7,8 +7,9 @@ struct PlanScreen: View {
     @Environment(AppCoordinator.self) var coordinator
     @Query private var activePrograms: [ActiveProgram]
     @Query(sort: \WorkoutTemplate.createdAt, order: .reverse) private var templates: [WorkoutTemplate]
+    @Query private var profiles: [UserProfile]
 
-    @State private var selectedMode: PlanMode = .templates
+    @State private var selectedMode: PlanMode?
 
     enum PlanMode: String, CaseIterable {
         case templates = "Templates"
@@ -26,17 +27,26 @@ struct PlanScreen: View {
 
                 // Body
                 ScrollView {
-                    switch selectedMode {
+                    switch resolvedMode {
                     case .templates:
                         templatesBody
                     case .coach:
-                        coachBody
+                        CoachBody()
                     }
                 }
             }
             .background(theme.bg)
             .toolbar(.hidden, for: .navigationBar)
+            .onAppear {
+                if selectedMode == nil {
+                    selectedMode = profiles.first?.trainingMode == "coach" ? .coach : .templates
+                }
+            }
         }
+    }
+
+    private var resolvedMode: PlanMode {
+        selectedMode ?? (profiles.first?.trainingMode == "coach" ? .coach : .templates)
     }
 
     // MARK: - Mode Toggle
@@ -51,11 +61,11 @@ struct PlanScreen: View {
                 } label: {
                     Text(mode.rawValue)
                         .font(.system(size: TypeScale.sub, weight: .semibold))
-                        .foregroundStyle(selectedMode == mode ? theme.text : theme.text3)
+                        .foregroundStyle(resolvedMode == mode ? theme.text : theme.text3)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Spacing.s3)
                         .background(
-                            selectedMode == mode
+                            resolvedMode == mode
                                 ? theme.surface2
                                 : Color.clear
                         )
@@ -278,34 +288,5 @@ struct PlanScreen: View {
         }
     }
 
-    // MARK: - Coach Body
-
-    private var coachBody: some View {
-        VStack(spacing: Spacing.s4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: Radius.md)
-                    .fill(Color.accent.opacity(0.22))
-                    .frame(width: 52, height: 52)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 24))
-                    .foregroundStyle(Color.accent)
-            }
-
-            VStack(spacing: Spacing.s2) {
-                Text("AI Coach")
-                    .font(.system(size: TypeScale.callout, weight: .semibold))
-                    .foregroundStyle(theme.text)
-                Text("An intelligent coach that adapts your training based on your progress, recovery and goals. Coming soon.")
-                    .font(.system(size: TypeScale.sub))
-                    .foregroundStyle(theme.text2)
-                    .multilineTextAlignment(.center)
-            }
-
-            PillView(text: "Coming Soon", tone: .accent)
-        }
-        .card()
-        .padding(.horizontal, Spacing.s4)
-        .padding(.top, Spacing.s4)
-    }
 }
 

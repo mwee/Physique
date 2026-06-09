@@ -428,7 +428,7 @@ struct OnboardingFlow: View {
         if vm.step == .ready {
             finishOnboarding()
         } else {
-            vm.next()
+            vm.next(context: modelContext)
         }
     }
 

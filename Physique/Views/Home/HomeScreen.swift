@@ -5,6 +5,14 @@ struct HomeScreen: View {
     @Environment(\.theme) var theme
     @Environment(AppCoordinator.self) var coordinator
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+    @Query private var profiles: [UserProfile]
+    @Query(sort: \CoachPlan.createdAt, order: .reverse) private var coachPlans: [CoachPlan]
+    @Query private var exercises: [Exercise]
+
+    private var coachPlan: CoachPlan? {
+        guard profiles.first?.trainingMode == "coach" else { return nil }
+        return coachPlans.first
+    }
 
     var body: some View {
         NavigationStack {
@@ -25,10 +33,71 @@ struct HomeScreen: View {
         }
     }
 
+    // MARK: - Up Next (Coach)
+
+    @ViewBuilder
+    private var upNextCard: some View {
+        if let plan = coachPlan {
+            VStack(alignment: .leading, spacing: Spacing.s3) {
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.accent)
+                    Text("Up next")
+                        .font(.system(size: TypeScale.caption, weight: .bold))
+                        .foregroundStyle(theme.text3)
+                        .tracking(0.5)
+                    Spacer()
+                    Text("\(CoachPlanService.daysCompletedThisWeek(plan, sessions: sessions)) of \(plan.sortedDays.count) this week")
+                        .font(.system(size: TypeScale.footnote, weight: .semibold))
+                        .foregroundStyle(theme.text3)
+                }
+
+                if let day = CoachPlanService.nextDay(plan, sessions: sessions) {
+                    Text(day.name)
+                        .font(.system(size: TypeScale.title3, weight: .bold))
+                        .foregroundStyle(theme.text)
+                    Text("\(day.focus) \u{00B7} \(day.sortedExercises.count) exercises")
+                        .font(.system(size: TypeScale.sub))
+                        .foregroundStyle(theme.text2)
+
+                    Button {
+                        coordinator.launchWorkout(
+                            name: day.name,
+                            exercises: CoachPlanService.activeExercises(for: day, catalog: exercises),
+                            coached: true,
+                            coachPlanDayId: day.id
+                        )
+                    } label: {
+                        HStack(spacing: Spacing.s2) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 14))
+                            Text("Start coached workout")
+                        }
+                    }
+                    .buttonStyle(.physique(.primary))
+                    .padding(.top, Spacing.s1)
+                } else {
+                    Text("Week complete \u{2014} nice work")
+                        .font(.system(size: TypeScale.title3, weight: .bold))
+                        .foregroundStyle(theme.text)
+                    Text("You\u{2019}ve finished every day in your plan this week. Rest up or repeat a session from the Plan tab.")
+                        .font(.system(size: TypeScale.sub))
+                        .foregroundStyle(theme.text2)
+                }
+            }
+            .card()
+            .padding(.horizontal, Spacing.s4)
+            .padding(.top, Spacing.s4)
+        }
+    }
+
     // MARK: - Empty State
 
     private var emptyHomeContent: some View {
         VStack(spacing: Spacing.s4) {
+            upNextCard
+
             // Hero card
             VStack(spacing: Spacing.s4) {
                 ZStack {
@@ -119,6 +188,8 @@ struct HomeScreen: View {
 
     private var populatedHomeContent: some View {
         VStack(alignment: .leading, spacing: 0) {
+            upNextCard
+
             // Start workout
             Button {
                 coordinator.launchBlankWorkout()
@@ -126,10 +197,10 @@ struct HomeScreen: View {
                 HStack(spacing: Spacing.s2) {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 14))
-                    Text("Start workout now")
+                    Text(coachPlan != nil ? "Start a quick workout" : "Start workout now")
                 }
             }
-            .buttonStyle(.physique(.primary))
+            .buttonStyle(.physique(coachPlan != nil ? .secondary : .primary))
             .padding(.horizontal, Spacing.s4)
             .padding(.top, Spacing.s4)
 

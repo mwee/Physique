@@ -12,6 +12,8 @@ final class OnboardingViewModel {
     var path: String? // "coach" or "template"
     var isBuilding: Bool = false
 
+    private let coachService = CoachPlanService()
+
     enum OnboardingStep: Int, CaseIterable {
         case welcome, goal, level, schedule, equipment, path, ready
 
@@ -44,18 +46,35 @@ final class OnboardingViewModel {
         }
     }
 
-    func next() {
+    func next(context: ModelContext) {
         guard let nextStep = OnboardingStep(rawValue: step.rawValue + 1) else { return }
-        if step == .path {
+        if step == .path && path == "coach" {
+            // Coach path: generate and persist a real weekly plan before advancing.
             isBuilding = true
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(1.4))
+                await buildPlan(context: context)
                 isBuilding = false
                 step = nextStep
             }
         } else {
             step = nextStep
         }
+    }
+
+    @MainActor
+    private func buildPlan(context: ModelContext) async {
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let oneRepMaxes = (try? context.fetch(FetchDescriptor<OneRepMaxEntry>())) ?? []
+        let request = CoachPlanService.makeRequest(
+            goal: goal ?? "Build muscle",
+            level: level ?? "Beginner",
+            daysPerWeek: daysPerWeek,
+            equipment: Array(equipment),
+            unit: units,
+            exercises: exercises,
+            oneRepMaxes: oneRepMaxes
+        )
+        await coachService.generateAndStore(from: request, context: context)
     }
 
     func back() {

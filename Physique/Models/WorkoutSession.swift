@@ -12,6 +12,10 @@ final class WorkoutSession {
     var prCount: Int
     var notes: String?
 
+    /// Links a finished session back to the coach day it was launched from (nil for
+    /// template/blank workouts). Single source of truth for coach day-completion.
+    var coachPlanDayId: UUID?
+
     @Relationship(deleteRule: .cascade, inverse: \SessionExercise.session)
     var exercises: [SessionExercise] = []
 

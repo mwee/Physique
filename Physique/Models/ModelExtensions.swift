@@ -48,6 +48,33 @@ enum TemplateKind: String {
     case custom
 }
 
+enum CoachPlanSource: String {
+    case llm
+    case fallback
+}
+
+extension CoachPlan {
+    var unit: WeightUnit {
+        get { WeightUnit(rawValue: unitRaw) ?? .lb }
+        set { unitRaw = newValue.rawValue }
+    }
+
+    var source: CoachPlanSource {
+        get { CoachPlanSource(rawValue: sourceRaw) ?? .llm }
+        set { sourceRaw = newValue.rawValue }
+    }
+
+    var sortedDays: [CoachPlanDay] {
+        days.sorted { $0.orderIndex < $1.orderIndex }
+    }
+}
+
+extension CoachPlanDay {
+    var sortedExercises: [CoachPlanExercise] {
+        exercises.sorted { $0.orderIndex < $1.orderIndex }
+    }
+}
+
 extension WorkoutTemplate {
     var kind: TemplateKind {
         get { TemplateKind(rawValue: kindRaw) ?? .custom }

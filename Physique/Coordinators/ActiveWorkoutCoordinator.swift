@@ -6,6 +6,7 @@ final class ActiveWorkoutCoordinator {
     var workoutName: String = "Morning Workout"
     var exercises: [ActiveExercise] = []
     var isCoached: Bool = false
+    var coachPlanDayId: UUID?
     var startTime: Date = Date()
     var hasStarted: Bool = false
 
@@ -210,10 +211,11 @@ final class ActiveWorkoutCoordinator {
 
     // MARK: - Start / Finish
 
-    func startWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false) {
+    func startWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false, coachPlanDayId: UUID? = nil) {
         self.workoutName = name
         self.exercises = exercises
         self.isCoached = coached
+        self.coachPlanDayId = coachPlanDayId
         self.startTime = Date()
         self.activeCell = nil
         self.editBuffer = ""
@@ -234,12 +236,18 @@ final class ActiveWorkoutCoordinator {
 
     func finishWorkout(context: ModelContext) -> WorkoutSession {
         let duration = Date().timeIntervalSince(startTime)
-        return WorkoutEngine.saveWorkout(
+        let session = WorkoutEngine.saveWorkout(
             name: workoutName,
             exercises: exercises,
             duration: duration,
             context: context
         )
+        // Link a coached session back to its plan day (no-op for template/blank).
+        if let dayId = coachPlanDayId {
+            session.coachPlanDayId = dayId
+            try? context.save()
+        }
+        return session
     }
 }
 

@@ -18,6 +18,9 @@ struct PhysiqueApp: App {
             WorkoutTemplate.self,
             TemplateItem.self,
             OneRepMaxEntry.self,
+            CoachPlan.self,
+            CoachPlanDay.self,
+            CoachPlanExercise.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

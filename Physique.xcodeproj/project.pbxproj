@@ -27,11 +27,25 @@
 		4C2CD60D2FD5C63F00238841 /* Physique.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Physique.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C2CD61C2FD5C64000238841 /* PhysiqueTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhysiqueTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C2CD6262FD5C64000238841 /* PhysiqueUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhysiqueUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAAAA010000000000000001 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4CAAAA020000000000000002 /* Exceptions for "Physique" folder in "Physique" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4C2CD60C2FD5C63F00238841 /* Physique */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4C2CD60F2FD5C63F00238841 /* Physique */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4CAAAA020000000000000002 /* Exceptions for "Physique" folder in "Physique" target */,
+			);
 			path = Physique;
 			sourceTree = "<group>";
 		};
@@ -75,6 +89,7 @@
 		4C2CD6042FD5C63F00238841 = {
 			isa = PBXGroup;
 			children = (
+				4CAAAA010000000000000001 /* Secrets.xcconfig */,
 				4C2CD60F2FD5C63F00238841 /* Physique */,
 				4C2CD61F2FD5C64000238841 /* PhysiqueTests */,
 				4C2CD6292FD5C64000238841 /* PhysiqueUITests */,
@@ -390,6 +405,7 @@
 		};
 		4C2CD6312FD5C64000238841 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4CAAAA010000000000000001 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -398,12 +414,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z2CRX5Z8QQ;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Physique/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -423,6 +435,7 @@
 		};
 		4C2CD6322FD5C64000238841 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4CAAAA010000000000000001 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -431,12 +444,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z2CRX5Z8QQ;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Physique/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

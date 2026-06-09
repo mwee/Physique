@@ -1,0 +1,14 @@
+{
+  "name": "physique-coach-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend proxy that holds the Anthropic key for the Physique AI Coach.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "express": "^4.21.2"
+  }
+}

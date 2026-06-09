@@ -12,14 +12,16 @@ final class AppCoordinator {
     var pendingWorkoutName: String?
     var pendingExercises: [ActiveExercise]?
     var pendingCoached: Bool = false
+    var pendingCoachPlanDayId: UUID?
 
     private var toastTask: Task<Void, Never>?
 
     /// Stage a workout and present the active-workout cover.
-    func launchWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false) {
+    func launchWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false, coachPlanDayId: UUID? = nil) {
         pendingWorkoutName = name
         pendingExercises = exercises
         pendingCoached = coached
+        pendingCoachPlanDayId = coachPlanDayId
         isWorkoutActive = true
     }
 

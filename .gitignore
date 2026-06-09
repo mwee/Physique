@@ -1,0 +1,20 @@
+# Local secrets — never commit the real proxy URL / keys
+Secrets.xcconfig
+
+# Proxy secrets + deps
+proxy/.env
+proxy/node_modules/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.moved-aside
+
+# macOS
+.DS_Store
+
+# Handoff artifacts
+Physique-handoff.zip

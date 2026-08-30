@@ -15,6 +15,7 @@ struct PhysiqueApp: App {
             UserProfile.self,
             BodyweightEntry.self,
             ActiveProgram.self,
+            CustomProgram.self,
             WorkoutTemplate.self,
             TemplateItem.self,
             OneRepMaxEntry.self,

@@ -7,6 +7,7 @@ final class ActiveWorkoutCoordinator {
     var exercises: [ActiveExercise] = []
     var isCoached: Bool = false
     var coachPlanDayId: UUID?
+    var advancesProgram: Bool = false
     var startTime: Date = Date()
     var hasStarted: Bool = false
 
@@ -211,11 +212,12 @@ final class ActiveWorkoutCoordinator {
 
     // MARK: - Start / Finish
 
-    func startWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false, coachPlanDayId: UUID? = nil) {
+    func startWorkout(name: String, exercises: [ActiveExercise], coached: Bool = false, coachPlanDayId: UUID? = nil, advancesProgram: Bool = false) {
         self.workoutName = name
         self.exercises = exercises
         self.isCoached = coached
         self.coachPlanDayId = coachPlanDayId
+        self.advancesProgram = advancesProgram
         self.startTime = Date()
         self.activeCell = nil
         self.editBuffer = ""

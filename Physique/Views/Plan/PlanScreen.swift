@@ -6,8 +6,10 @@ struct PlanScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppCoordinator.self) var coordinator
     @Query private var activePrograms: [ActiveProgram]
+    @Query(sort: \CustomProgram.createdAt, order: .reverse) private var customPrograms: [CustomProgram]
     @Query(sort: \WorkoutTemplate.createdAt, order: .reverse) private var templates: [WorkoutTemplate]
     @Query private var profiles: [UserProfile]
+    @Query private var exerciseCatalog: [Exercise]
 
     @State private var selectedMode: PlanMode?
 
@@ -41,6 +43,9 @@ struct PlanScreen: View {
                 if selectedMode == nil {
                     selectedMode = profiles.first?.trainingMode == "coach" ? .coach : .templates
                 }
+            }
+            .onChange(of: profiles.first?.trainingMode) { _, newMode in
+                selectedMode = newMode == "coach" ? .coach : .templates
             }
         }
     }
@@ -251,16 +256,39 @@ struct PlanScreen: View {
         .padding(.top, Spacing.s4)
     }
 
+    @ViewBuilder
     private func activeProgramCard(_ program: ActiveProgram) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.s3) {
+        if let definition = ProgramResolver.definition(for: program, customPrograms: customPrograms),
+           let day = ProgramResolver.currentDay(of: definition, active: program) {
+            nextSessionCard(program: program, definition: definition, day: day)
+        } else {
+            // Definition gone (e.g. custom program deleted) — degrade gracefully.
+            VStack(alignment: .leading, spacing: Spacing.s2) {
+                Text("Program unavailable")
+                    .font(.system(size: TypeScale.callout, weight: .bold))
+                    .foregroundStyle(theme.text)
+                Text("The active program couldn\u{2019}t be loaded. Pick a new one from the library.")
+                    .font(.system(size: TypeScale.sub))
+                    .foregroundStyle(theme.text2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+        }
+    }
+
+    private func nextSessionCard(program: ActiveProgram, definition: ProgramDefinition, day: SplitDay) -> some View {
+        let exercises = ProgramResolver.sessionExercises(for: program, definition: definition, catalog: exerciseCatalog)
+
+        return VStack(alignment: .leading, spacing: Spacing.s3) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(program.programId.uppercased())
-                        .font(.system(size: TypeScale.callout, weight: .bold))
+                    Text("\(definition.name) \u{00B7} \(ProgramResolver.weekLabel(for: program, definition: definition))")
+                        .font(.system(size: TypeScale.caption, weight: .bold))
+                        .foregroundStyle(theme.text3)
+                        .tracking(0.5)
+                    Text(day.sub.map { "\(day.name) \u{00B7} \($0)" } ?? day.name)
+                        .font(.system(size: TypeScale.title3, weight: .bold))
                         .foregroundStyle(theme.text)
-                    Text("Week \(program.currentWeek + 1)")
-                        .font(.system(size: TypeScale.sub))
-                        .foregroundStyle(theme.text2)
                 }
 
                 Spacer()
@@ -268,25 +296,92 @@ struct PlanScreen: View {
                 PillView(text: "Active", tone: .success, icon: "checkmark")
             }
 
-            HStack(spacing: Spacing.s6) {
-                programStat("Unit", program.unit.displayName)
-                programStat("TM %", "\(program.trainingMaxPercent)%")
+            // Session rows with computed weights
+            VStack(spacing: 0) {
+                ForEach(Array(exercises.enumerated()), id: \.element.id) { index, exercise in
+                    let working = exercise.sets.filter { !$0.type.isWarmup }
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(exercise.name)
+                                .font(.system(size: TypeScale.body, weight: .semibold))
+                                .foregroundStyle(theme.text)
+                            Text(schemeLabel(for: working))
+                                .font(.system(size: TypeScale.footnote, weight: .semibold))
+                                .foregroundStyle(theme.text3)
+                        }
+
+                        Spacer()
+
+                        if let top = working.map(\.weight).max(), top > 0 {
+                            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                                Text(WeightFormatter.format(top))
+                                    .font(.system(size: TypeScale.callout, weight: .bold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(theme.text)
+                                Text(program.unit.displayName)
+                                    .font(.system(size: TypeScale.caption, weight: .bold))
+                                    .foregroundStyle(theme.text3)
+                            }
+                        }
+                    }
+                    .padding(.vertical, Spacing.s2)
+
+                    if index < exercises.count - 1 {
+                        Divider()
+                            .background(theme.hairline)
+                    }
+                }
             }
+
+            Button {
+                startProgramSession(program: program, definition: definition, day: day, exercises: exercises)
+            } label: {
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14))
+                    Text("Start session")
+                }
+            }
+            .buttonStyle(.physique(.primary))
+            .padding(.top, Spacing.s1)
         }
         .card()
-    }
-
-    private func programStat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label.uppercased())
-                .font(.system(size: TypeScale.caption, weight: .bold))
-                .foregroundStyle(theme.text3)
-                .tracking(0.5)
-            Text(value)
-                .font(.system(size: TypeScale.body, weight: .bold))
-                .foregroundStyle(theme.text)
+        .contextMenu {
+            Button {
+                ProgramResolver.advance(program, definition: definition)
+                try? modelContext.save()
+            } label: {
+                Label("Skip this day", systemImage: "forward.fill")
+            }
+            Button(role: .destructive) {
+                modelContext.delete(program)
+                try? modelContext.save()
+            } label: {
+                Label("Deactivate program", systemImage: "xmark.circle")
+            }
         }
     }
 
+    /// "3 sets \u{00D7} 5" for straight sets, "3 sets \u{00B7} top set" for ramps.
+    private func schemeLabel(for working: [ActiveSet]) -> String {
+        guard let first = working.first else { return "" }
+        let uniform = working.allSatisfy { $0.reps == first.reps && $0.weight == first.weight }
+        if uniform {
+            return "\(working.count) \u{00D7} \(first.reps)"
+        }
+        return "\(working.count) sets \u{00B7} top set"
+    }
+
+    private func startProgramSession(program: ActiveProgram, definition: ProgramDefinition, day: SplitDay, exercises: [ActiveExercise]) {
+        guard !exercises.isEmpty else {
+            coordinator.showToast("Set your maxes to build this session", icon: "exclamationmark.triangle")
+            return
+        }
+        coordinator.launchWorkout(
+            name: "\(definition.name) \u{00B7} \(day.name)",
+            exercises: exercises,
+            advancesProgram: true
+        )
+    }
 }
 

@@ -9,6 +9,7 @@ final class ActiveProgram {
     var trainingMaxPercent: Int = 90
     var includeWarmups: Bool = false
     var currentWeek: Int = 0
+    var currentDayIndex: Int = 0
     var unitRaw: String = "lb"
     var activatedAt: Date = Date()
 

@@ -10,6 +10,7 @@ struct ProgressScreen: View {
 
     @State private var showBodyweightSheet = false
     @State private var showPaywall = false
+    @State private var showE1RMInfo = false
 
     // 1RM row entry
     @State private var showLiftPicker = false
@@ -46,6 +47,11 @@ struct ProgressScreen: View {
         }
         .sheet(isPresented: $showPaywall) {
             PaywallSheet()
+                .environment(\.theme, PhysiqueColors.dark)
+                .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showE1RMInfo) {
+            OneRepMaxInfoSheet()
                 .environment(\.theme, PhysiqueColors.dark)
                 .preferredColorScheme(.dark)
         }
@@ -89,9 +95,19 @@ struct ProgressScreen: View {
                 .padding(.horizontal, Spacing.s4)
 
             // 1RM section
-            SectionLabel(text: "1 Rep Max")
-                .padding(.top, Spacing.s6)
-                .padding(.bottom, Spacing.s3)
+            HStack(spacing: Spacing.s1) {
+                SectionLabel(text: "1 Rep Max")
+                Button {
+                    showE1RMInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 13))
+                        .foregroundStyle(theme.text3)
+                }
+                .accessibilityLabel("About estimated 1RM")
+            }
+            .padding(.top, Spacing.s6)
+            .padding(.bottom, Spacing.s3)
 
             oneRepMaxList
                 .padding(.horizontal, Spacing.s4)

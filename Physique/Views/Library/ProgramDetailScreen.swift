@@ -4,13 +4,16 @@ import SwiftData
 struct ProgramDetailScreen: View {
     @Environment(\.theme) var theme
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppCoordinator.self) var coordinator
     @Query(sort: \OneRepMaxEntry.date, order: .reverse) private var oneRepMaxes: [OneRepMaxEntry]
+    @Query private var profiles: [UserProfile]
     let program: ProgramDefinition
     @State private var maxes: [String: Double] = [:]
     @State private var tmPct: Int = 90
     @State private var includeWarmups: Bool = false
     @State private var unit: WeightUnit = .lb
+    @State private var expandedDay: Int?
 
     var body: some View {
         ScrollView {
@@ -128,6 +131,14 @@ struct ProgramDetailScreen: View {
                     .padding(.horizontal, Spacing.s4)
                 }
 
+                // Week 1 preview with the user's maxes
+                SectionLabel(text: "Week 1 \u{00B7} with your maxes")
+                    .padding(.top, Spacing.s6)
+                    .padding(.bottom, Spacing.s3)
+
+                weekOnePreview
+                    .padding(.horizontal, Spacing.s4)
+
                 // Progression note
                 VStack(alignment: .leading, spacing: Spacing.s2) {
                     HStack(spacing: Spacing.s2) {
@@ -163,12 +174,14 @@ struct ProgramDetailScreen: View {
                 }
                 .buttonStyle(.physique(.primary))
 
-                Button {
-                    saveAsTemplate()
-                } label: {
-                    Text("Save to My Templates")
+                if !program.id.hasPrefix("custom-") {
+                    Button {
+                        saveAsTemplate()
+                    } label: {
+                        Text("Save to My Templates")
+                    }
+                    .buttonStyle(.physique(.secondary))
                 }
-                .buttonStyle(.physique(.secondary))
             }
             .padding(.horizontal, Spacing.s4)
             .padding(.vertical, Spacing.s4)
@@ -182,6 +195,119 @@ struct ProgramDetailScreen: View {
                 }
             }
         }
+    }
+
+    // MARK: - Week 1 Preview
+
+    /// Expandable per-day preview of the first week, computed from the maxes
+    /// and TM% currently dialed in above.
+    private var weekOnePreview: some View {
+        // Not inserted into the context — just a throwaway config for the builder.
+        let config = ActiveProgram(
+            programId: program.id,
+            maxes: maxes,
+            trainingMaxPercent: tmPct,
+            includeWarmups: false,
+            currentWeek: 0,
+            unit: unit
+        )
+
+        return VStack(spacing: 0) {
+            ForEach(Array(program.split.enumerated()), id: \.element.id) { index, day in
+                let isOpen = expandedDay == index
+                VStack(alignment: .leading, spacing: 0) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            expandedDay = isOpen ? nil : index
+                        }
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(day.name)
+                                    .font(.system(size: TypeScale.body, weight: .bold))
+                                    .foregroundStyle(theme.text)
+                                if !isOpen, let summary = daySummary(day) {
+                                    Text(summary)
+                                        .font(.system(size: TypeScale.footnote))
+                                        .foregroundStyle(theme.text2)
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(theme.text3)
+                        }
+                        .padding(.horizontal, Spacing.s4)
+                        .padding(.vertical, Spacing.s3)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if isOpen {
+                        let dayExercises = SessionBuilder.buildSession(program: program, config: config, dayIndex: index)
+                        VStack(spacing: 0) {
+                            ForEach(dayExercises) { exercise in
+                                let working = exercise.sets.filter { !$0.type.isWarmup }
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(exercise.name)
+                                            .font(.system(size: TypeScale.sub, weight: .semibold))
+                                            .foregroundStyle(theme.text)
+                                        if let first = working.first {
+                                            Text("\(working.count) \u{00D7} \(first.reps)")
+                                                .font(.system(size: TypeScale.caption, weight: .semibold))
+                                                .foregroundStyle(theme.text3)
+                                        }
+                                    }
+                                    Spacer()
+                                    if let top = working.map(\.weight).max(), top > 0 {
+                                        HStack(alignment: .lastTextBaseline, spacing: 2) {
+                                            Text(WeightFormatter.format(top))
+                                                .font(.system(size: TypeScale.body, weight: .bold))
+                                                .monospacedDigit()
+                                                .foregroundStyle(theme.text)
+                                            Text(unit.displayName)
+                                                .font(.system(size: TypeScale.caption, weight: .bold))
+                                                .foregroundStyle(theme.text3)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, Spacing.s4)
+                                .padding(.vertical, Spacing.s2)
+                            }
+                        }
+                        .padding(.bottom, Spacing.s2)
+                    }
+                }
+
+                if index < program.split.count - 1 {
+                    Divider()
+                        .background(theme.hairline)
+                        .padding(.leading, Spacing.s4)
+                }
+            }
+        }
+        .background(theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .stroke(theme.hairline, lineWidth: 1)
+        )
+    }
+
+    /// Collapsed one-liner: lift names trained that day.
+    private func daySummary(_ day: SplitDay) -> String? {
+        var liftIds: [String] = []
+        if let items = day.items {
+            liftIds = items.map(\.id)
+        } else if !day.ids.isEmpty {
+            liftIds = day.ids
+        } else if program.single {
+            liftIds = program.liftIds
+        }
+        guard !liftIds.isEmpty else { return day.sub }
+        let names = liftIds.map { BuiltInPrograms.lifts[$0]?.short ?? $0.capitalized }
+        return names.joined(separator: " \u{00B7} ")
     }
 
     private func defaultMax(_ liftId: String) -> Double {
@@ -208,10 +334,14 @@ struct ProgramDetailScreen: View {
             unit: unit
         )
         modelContext.insert(active)
+        // Training a %TM program is template mode; flip coach-mode profiles
+        // over so the Plan tab surfaces the new session card.
+        profiles.first?.trainingMode = "template"
         try? modelContext.save()
 
         coordinator.showToast("\(program.name) activated", icon: "checkmark", tone: .success)
         coordinator.selectedTab = .plan
+        dismiss()
     }
 
     private func saveAsTemplate() {

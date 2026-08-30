@@ -9,6 +9,7 @@ struct ExerciseBlockView: View {
     let onFocus: (Int, ActiveWorkoutCoordinator.CellField) -> Void
     let onToggle: (Int) -> Void
     let onAddSet: () -> Void
+    @State private var showDemo = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,12 +20,24 @@ struct ExerciseBlockView: View {
                     .foregroundStyle(Color.accent)
                 Spacer()
                 HStack(spacing: Spacing.s2) {
-                    Image(systemName: "link")
-                        .font(.system(size: 17))
+                    if !ExerciseMediaService.frames(for: exercise.exId).isEmpty {
+                        Button {
+                            showDemo = true
+                        } label: {
+                            Image(systemName: "play.rectangle")
+                                .font(.system(size: 17))
+                        }
+                        .accessibilityLabel("Watch \(exercise.name) demo")
+                    }
                     Image(systemName: "ellipsis")
                         .font(.system(size: 17, weight: .semibold))
                 }
                 .foregroundStyle(Color.accent)
+            }
+            .sheet(isPresented: $showDemo) {
+                ExerciseDemoSheet(exerciseId: exercise.exId, exerciseName: exercise.name, cue: exercise.cue)
+                    .environment(\.theme, PhysiqueColors.dark)
+                    .preferredColorScheme(.dark)
             }
             .padding(.horizontal, Spacing.s4)
             .padding(.top, Spacing.s4)

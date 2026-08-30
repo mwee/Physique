@@ -79,12 +79,22 @@ private struct ExerciseRow: View {
         HStack(spacing: Spacing.s3) {
             // Icon
             ZStack {
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(theme.surface2)
-                    .frame(width: 38, height: 38)
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 17))
-                    .foregroundStyle(theme.text2)
+                if let thumbnail = ExerciseMediaService.frames(for: exercise.id).first {
+                    RoundedRectangle(cornerRadius: Radius.xs)
+                        .fill(Color.white)
+                        .frame(width: 38, height: 38)
+                    Image(thumbnail)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 34, height: 34)
+                } else {
+                    RoundedRectangle(cornerRadius: Radius.xs)
+                        .fill(theme.surface2)
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(theme.text2)
+                }
             }
 
             // Text

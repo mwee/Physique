@@ -7,9 +7,13 @@ struct FallbackCoachPlanProvider: CoachPlanProvider {
         let scheme = RepScheme.forGoal(request.goal)
         let split = Split.forDays(request.daysPerWeek)
 
-        // Catalog filtered to what the user can actually perform.
+        // Catalog filtered to what the user can actually perform. The equipment filter is a
+        // preference, not a hard wall: with a thin catalog (e.g. bodyweight-only matches a
+        // single exercise) it would produce degenerate one-exercise days, so widen back to
+        // the full catalog rather than ship a useless plan.
         let allowed = Set(request.equipment)
-        let usable = request.catalog.filter { allowed.isEmpty || allowed.contains($0.equipment) }
+        let filtered = request.catalog.filter { allowed.isEmpty || allowed.contains($0.equipment) }
+        let usable = filtered.count >= 3 ? filtered : request.catalog
 
         let days = split.days.enumerated().map { index, focus -> DraftDay in
             let picks = pickExercises(for: focus, from: usable)

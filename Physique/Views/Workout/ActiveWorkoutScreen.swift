@@ -131,12 +131,14 @@ struct ActiveWorkoutScreen: View {
                 name: appCoordinator.pendingWorkoutName ?? "Quick Workout",
                 exercises: appCoordinator.pendingExercises ?? [],
                 coached: appCoordinator.pendingCoached,
-                coachPlanDayId: appCoordinator.pendingCoachPlanDayId
+                coachPlanDayId: appCoordinator.pendingCoachPlanDayId,
+                advancesProgram: appCoordinator.pendingAdvancesProgram
             )
             appCoordinator.pendingWorkoutName = nil
             appCoordinator.pendingExercises = nil
             appCoordinator.pendingCoached = false
             appCoordinator.pendingCoachPlanDayId = nil
+            appCoordinator.pendingAdvancesProgram = false
         }
         .sheet(isPresented: $showExercisePicker) {
             ExercisePickerSheet { exercise in
@@ -188,6 +190,9 @@ struct ActiveWorkoutScreen: View {
 
             Button {
                 let _ = wk.finishWorkout(context: modelContext)
+                if wk.advancesProgram {
+                    ProgramResolver.advanceActiveProgram(context: modelContext)
+                }
                 appCoordinator.isWorkoutActive = false
                 appCoordinator.showToast("Workout saved", icon: "checkmark", tone: .success)
             } label: {

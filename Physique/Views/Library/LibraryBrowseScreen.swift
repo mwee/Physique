@@ -1,14 +1,28 @@
 import SwiftUI
+import SwiftData
 
 struct LibraryBrowseScreen: View {
     @Environment(\.theme) var theme
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \CustomProgram.createdAt, order: .reverse) private var customPrograms: [CustomProgram]
     @State private var searchQuery = ""
     @State private var selectedCategory = "All"
 
+    private var categories: [String] {
+        ["All"] + BuiltInPrograms.categories + ["Mine"]
+    }
+
+    /// Custom programs first (when shown), then built-ins — like the design's
+    /// All/Mine template list.
     private var filteredPrograms: [ProgramDefinition] {
-        var programs = BuiltInPrograms.programs
-        if selectedCategory != "All" {
-            programs = programs.filter { $0.tags.contains(selectedCategory) }
+        var programs: [ProgramDefinition]
+        switch selectedCategory {
+        case "Mine":
+            programs = customPrograms.map { $0.definition(forWeek: 0) }
+        case "All":
+            programs = customPrograms.map { $0.definition(forWeek: 0) } + BuiltInPrograms.programs
+        default:
+            programs = BuiltInPrograms.programs.filter { $0.tags.contains(selectedCategory) }
         }
         if !searchQuery.isEmpty {
             programs = programs.filter {
@@ -17,6 +31,10 @@ struct LibraryBrowseScreen: View {
             }
         }
         return programs
+    }
+
+    private func customProgram(for definition: ProgramDefinition) -> CustomProgram? {
+        customPrograms.first { $0.programId == definition.id }
     }
 
     var body: some View {
@@ -41,7 +59,7 @@ struct LibraryBrowseScreen: View {
                 // Category chips
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Spacing.s2) {
-                        ForEach(BuiltInPrograms.categories, id: \.self) { category in
+                        ForEach(categories, id: \.self) { category in
                             Button(category) {
                                 selectedCategory = category
                             }
@@ -59,13 +77,42 @@ struct LibraryBrowseScreen: View {
 
                 // Program list
                 VStack(spacing: Spacing.s3) {
+                    if filteredPrograms.isEmpty {
+                        Text("Nothing here yet \u{2014} build your own below.")
+                            .font(.system(size: TypeScale.sub))
+                            .foregroundStyle(theme.text3)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.s6)
+                    }
                     ForEach(filteredPrograms) { program in
                         NavigationLink(destination: ProgramDetailScreen(program: program)) {
                             ProgramCardView(program: program)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            if let custom = customProgram(for: program) {
+                                Button(role: .destructive) {
+                                    modelContext.delete(custom)
+                                    try? modelContext.save()
+                                } label: {
+                                    Label("Delete program", systemImage: "trash")
+                                }
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal, Spacing.s4)
+                .padding(.top, Spacing.s4)
+
+                // Build my own
+                NavigationLink(destination: ProgramBuilderScreen()) {
+                    HStack(spacing: Spacing.s2) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Build my own")
+                    }
+                }
+                .buttonStyle(.physique(.secondary))
                 .padding(.horizontal, Spacing.s4)
                 .padding(.top, Spacing.s4)
                 .padding(.bottom, Spacing.s10)

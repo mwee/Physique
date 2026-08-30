@@ -364,6 +364,7 @@ struct CoachExerciseRow: View {
     let number: Int
     let unit: WeightUnit
     @State private var showWhy = false
+    @State private var showDemo = false
 
     private var detail: String {
         let repsPart = exercise.repsUnit.isEmpty ? "\(exercise.reps)" : "\(exercise.reps) \(exercise.repsUnit)"
@@ -427,9 +428,35 @@ struct CoachExerciseRow: View {
                         }
                     }
                 }
+
+                if let thumbnail = ExerciseMediaService.frames(for: exercise.exerciseId).first {
+                    Spacer(minLength: Spacing.s2)
+                    Button {
+                        showDemo = true
+                    } label: {
+                        ZStack(alignment: .bottomTrailing) {
+                            Image(thumbnail)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 48, height: 48)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.accent, Color.white)
+                                .offset(x: 4, y: 4)
+                        }
+                    }
+                    .accessibilityLabel("Watch \(exercise.name) demo")
+                }
             }
             .padding(.horizontal, Spacing.s4)
             .padding(.vertical, Spacing.s3)
+        }
+        .sheet(isPresented: $showDemo) {
+            ExerciseDemoSheet(exerciseId: exercise.exerciseId, exerciseName: exercise.name, cue: exercise.cue)
+                .environment(\.theme, PhysiqueColors.dark)
+                .preferredColorScheme(.dark)
         }
     }
 }

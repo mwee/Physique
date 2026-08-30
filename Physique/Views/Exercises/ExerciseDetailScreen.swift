@@ -5,6 +5,10 @@ struct ExerciseDetailScreen: View {
     @Environment(\.theme) var theme
     let exercise: Exercise
     @State private var chartRange = "8W"
+    @State private var showE1RMInfo = false
+
+    private var demoFrames: [String] { ExerciseMediaService.frames(for: exercise.id) }
+    private var instructions: [String] { ExerciseMediaService.instructions(for: exercise.id) }
 
     var body: some View {
         ScrollView {
@@ -17,12 +21,27 @@ struct ExerciseDetailScreen: View {
                 .padding(.horizontal, Spacing.s4)
                 .padding(.top, Spacing.s3)
 
+                // Demonstration animation
+                if !demoFrames.isEmpty {
+                    ExerciseAnimationView(frames: demoFrames)
+                        .padding(.horizontal, Spacing.s4)
+                        .padding(.top, Spacing.s4)
+                }
+
                 // Chart card
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Text("Estimated 1RM")
                             .font(.system(size: TypeScale.body, weight: .semibold))
                             .foregroundStyle(theme.text2)
+                        Button {
+                            showE1RMInfo = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 14))
+                                .foregroundStyle(theme.text3)
+                        }
+                        .accessibilityLabel("About estimated 1RM")
                         Spacer()
                         if let delta = exercise.e1rmDelta, delta > 0 {
                             Text("\u{25B2} \(WeightFormatter.format(delta)) lb")
@@ -110,12 +129,45 @@ struct ExerciseDetailScreen: View {
                         .stroke(theme.hairline, lineWidth: 1)
                 )
                 .padding(.horizontal, Spacing.s4)
+
+                // How to perform
+                if !instructions.isEmpty {
+                    SectionLabel(text: "How to perform")
+                        .padding(.top, Spacing.s6)
+                        .padding(.bottom, Spacing.s3)
+
+                    VStack(alignment: .leading, spacing: Spacing.s4) {
+                        ForEach(Array(instructions.enumerated()), id: \.offset) { index, step in
+                            HStack(alignment: .top, spacing: Spacing.s3) {
+                                Text("\(index + 1)")
+                                    .font(.system(size: TypeScale.footnote, weight: .bold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Color.accent)
+                                    .frame(width: 22, height: 22)
+                                    .background(theme.accentTint)
+                                    .clipShape(Circle())
+                                Text(step)
+                                    .font(.system(size: TypeScale.sub))
+                                    .foregroundStyle(theme.text2)
+                                    .lineSpacing(3)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .card()
+                    .padding(.horizontal, Spacing.s4)
+                }
             }
             .padding(.bottom, Spacing.s10)
         }
         .background(theme.bg)
         .navigationTitle(exercise.name)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showE1RMInfo) {
+            OneRepMaxInfoSheet()
+                .environment(\.theme, PhysiqueColors.dark)
+                .preferredColorScheme(.dark)
+        }
     }
 
     private func recordLabel(_ type: String) -> String {

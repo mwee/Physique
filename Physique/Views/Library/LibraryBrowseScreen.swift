@@ -40,6 +40,18 @@ struct LibraryBrowseScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
+                // What a program is
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.accent)
+                    Text("Multi-week plans. Every session is generated from your maxes, which stay locked for the block.")
+                        .font(.system(size: TypeScale.footnote))
+                        .foregroundStyle(theme.text3)
+                }
+                .padding(.horizontal, Spacing.s5)
+                .padding(.top, Spacing.s3)
+
                 // Search
                 HStack(spacing: Spacing.s2) {
                     Image(systemName: "magnifyingglass")
@@ -78,7 +90,7 @@ struct LibraryBrowseScreen: View {
                 // Program list
                 VStack(spacing: Spacing.s3) {
                     if filteredPrograms.isEmpty {
-                        Text("Nothing here yet \u{2014} build your own below.")
+                        Text("Nothing here yet \u{2014} build a program below.")
                             .font(.system(size: TypeScale.sub))
                             .foregroundStyle(theme.text3)
                             .frame(maxWidth: .infinity)
@@ -104,12 +116,12 @@ struct LibraryBrowseScreen: View {
                 .padding(.horizontal, Spacing.s4)
                 .padding(.top, Spacing.s4)
 
-                // Build my own
+                // Build a program
                 NavigationLink(destination: ProgramBuilderScreen()) {
                     HStack(spacing: Spacing.s2) {
                         Image(systemName: "plus")
                             .font(.system(size: 14, weight: .bold))
-                        Text("Build my own")
+                        Text("Build a program")
                     }
                 }
                 .buttonStyle(.physique(.secondary))
@@ -119,7 +131,7 @@ struct LibraryBrowseScreen: View {
             }
         }
         .background(theme.bg)
-        .navigationTitle("Template Library")
+        .navigationTitle("Programs")
     }
 }
 
@@ -134,9 +146,14 @@ struct ProgramCardView: View {
             ProgramGlyph(text: program.glyph)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(program.name)
-                    .font(.system(size: TypeScale.body, weight: .bold))
-                    .foregroundStyle(theme.text)
+                HStack(spacing: Spacing.s2) {
+                    Text(program.name)
+                        .font(.system(size: TypeScale.body, weight: .bold))
+                        .foregroundStyle(theme.text)
+                    if program.id.hasPrefix("custom-") {
+                        PillView(text: "Mine", tone: .accent)
+                    }
+                }
                 Text(program.author)
                     .font(.system(size: TypeScale.sub))
                     .foregroundStyle(theme.text2)

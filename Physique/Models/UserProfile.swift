@@ -11,6 +11,8 @@ final class UserProfile {
     var equipmentRaw: String = "" // CSV of ExerciseType.rawValue
 
     var trainingMode: String = "template" // "template" or "coach"
+    var displayName: String = ""
+    var defaultTrainingMaxPercent: Int = 90
     var hasCompletedOnboarding: Bool = false
     var createdAt: Date = Date()
 
@@ -21,7 +23,9 @@ final class UserProfile {
         weightUnit: WeightUnit = WeightUnit.lb,
         equipment: [ExerciseType] = [],
         trainingMode: String = "template",
-        hasCompletedOnboarding: Bool = false
+        hasCompletedOnboarding: Bool = false,
+        displayName: String = "",
+        defaultTrainingMaxPercent: Int = 90
     ) {
         self.goal = goal
         self.experienceLevel = experienceLevel
@@ -30,5 +34,7 @@ final class UserProfile {
         self.equipmentRaw = equipment.map(\.rawValue).joined(separator: ",")
         self.trainingMode = trainingMode
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.displayName = displayName
+        self.defaultTrainingMaxPercent = defaultTrainingMaxPercent
     }
 }

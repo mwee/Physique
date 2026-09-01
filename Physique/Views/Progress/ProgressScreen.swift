@@ -210,6 +210,10 @@ struct ProgressScreen: View {
         oneRepMaxes.first { $0.exerciseId == liftId }
     }
 
+    private func snapshot(for lift: TrackedLift) -> LiftStatsService.Snapshot {
+        LiftStatsService.snapshot(liftId: lift.id, liftName: lift.name, entries: oneRepMaxes, sessions: sessions)
+    }
+
     private var oneRepMaxList: some View {
         VStack(spacing: 0) {
             ForEach(trackedLifts) { lift in
@@ -228,17 +232,34 @@ struct ProgressScreen: View {
                                 .foregroundStyle(Color.accent)
                         }
 
-                        Text(lift.name)
-                            .font(.system(size: TypeScale.body, weight: .semibold))
-                            .foregroundStyle(theme.text)
+                        let snap = snapshot(for: lift)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(lift.name)
+                                .font(.system(size: TypeScale.body, weight: .semibold))
+                                .foregroundStyle(theme.text)
+                            Group {
+                                if let delta = snap.delta30 {
+                                    Text("\(delta > 0 ? "+" : "\u{2212}")\(WeightFormatter.format(abs(delta))) \u{00B7} 30d")
+                                        .foregroundStyle(delta > 0 ? Color.successGreen : theme.text3)
+                                } else if snap.isStale {
+                                    Text("Stale \u{00B7} nothing in \(LiftStatsService.e1rmWindowDays) days")
+                                        .foregroundStyle(theme.text3)
+                                } else {
+                                    Text("Rolling \(LiftStatsService.e1rmWindowDays)-day best e1RM")
+                                        .foregroundStyle(theme.text3)
+                                }
+                            }
+                            .font(.system(size: TypeScale.caption, weight: .semibold))
+                            .monospacedDigit()
+                        }
 
                         Spacer()
 
-                        if let latest = latestOneRM(for: lift.id) {
-                            Text("\(WeightFormatter.format(latest.weight)) \(latest.unit.displayName)")
+                        if let current = snap.value {
+                            Text("\(WeightFormatter.format(current)) \(latestOneRM(for: lift.id)?.unit.displayName ?? "lb")")
                                 .font(.system(size: TypeScale.body, weight: .bold))
                                 .monospacedDigit()
-                                .foregroundStyle(theme.text)
+                                .foregroundStyle(snap.isStale ? theme.text3 : theme.text)
                         } else {
                             Text("Add")
                                 .font(.system(size: TypeScale.sub, weight: .semibold))

@@ -28,6 +28,9 @@ struct ExerciseLibraryScreen: View {
                     .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                     .padding(.horizontal, Spacing.s4)
 
+                    EquipmentFilterChips(selection: $viewModel.equipmentFilter)
+                        .padding(.top, Spacing.s3)
+
                     // Grouped list
                     let groups = viewModel.groupedExercises(exercises)
                     ForEach(groups, id: \.0) { group, items in
@@ -91,8 +94,8 @@ private struct ExerciseRow: View {
                     RoundedRectangle(cornerRadius: Radius.xs)
                         .fill(theme.surface2)
                         .frame(width: 38, height: 38)
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 17))
+                    Image(systemName: exercise.equipmentType.icon)
+                        .font(.system(size: 16))
                         .foregroundStyle(theme.text2)
                 }
             }

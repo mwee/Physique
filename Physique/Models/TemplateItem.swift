@@ -10,6 +10,9 @@ final class TemplateItem {
     var targetSets: Int = 3
     var targetReps: Int = 5
     var targetWeight: Double = 0
+    /// JSON `[TemplateSetSpec]` — individual weight × reps per set. When
+    /// empty, the uniform target fields above describe every set (legacy).
+    var setsData: Data = Data()
     var template: WorkoutTemplate?
 
     init(

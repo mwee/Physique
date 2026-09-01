@@ -12,9 +12,17 @@ struct HomeScreen: View {
     @Query private var activePrograms: [ActiveProgram]
     @Query(sort: \CustomProgram.createdAt, order: .reverse) private var customPrograms: [CustomProgram]
 
+    @State private var showBlockReview = false
+
     private var coachPlan: CoachPlan? {
         guard profiles.first?.trainingMode == "coach" else { return nil }
         return coachPlans.first
+    }
+
+    private var activeProgram: ActiveProgram? { activePrograms.first }
+
+    private var activeDefinition: ProgramDefinition? {
+        activeProgram.flatMap { ProgramResolver.definition(for: $0, customPrograms: customPrograms) }
     }
 
     // The big four, in the order they read on the board.
@@ -28,353 +36,303 @@ struct HomeScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                    ScreenHeader(title: sessions.isEmpty ? "Welcome" : "Ready to lift")
-
-                    liftTileGrid
+                VStack(alignment: .leading, spacing: 0) {
+                    brandHeader
                         .padding(.horizontal, Spacing.s4)
 
-                    if sessions.isEmpty {
-                        emptyHomeContent
-                    } else {
-                        populatedHomeContent
+                    liftTileRow
+                        .padding(.horizontal, Spacing.s4)
+                        .padding(.top, Spacing.s4)
+
+                    upNextSection
+                        .padding(.top, Spacing.s3)
+
+                    Button {
+                        coordinator.launchBlankWorkout()
+                    } label: {
+                        HStack(spacing: Spacing.s2) {
+                            Image(systemName: "bolt.fill").font(.system(size: 13, weight: .semibold))
+                            Text("Start empty workout")
+                        }
+                    }
+                    .buttonStyle(.physique(sessions.isEmpty ? .primary : .ghost))
+                    .padding(.horizontal, Spacing.s4)
+                    .padding(.top, Spacing.s3)
+
+                    if !sessions.isEmpty {
+                        recentSection
                     }
                 }
                 .padding(.bottom, Spacing.s10)
             }
             .background(theme.bg)
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showBlockReview) {
+                if let program = activeProgram, let definition = activeDefinition {
+                    TrainingMaxReviewSheet(active: program, definition: definition)
+                        .environment(coordinator)
+                        .environment(\.theme, PhysiqueColors.dark)
+                        .preferredColorScheme(.dark)
+                }
+            }
         }
+    }
+
+    // MARK: - Brand header (logo · wordmark · avatar, gradient rule)
+
+    private var brandHeader: some View {
+        VStack(spacing: Spacing.s3) {
+            HStack {
+                HStack(spacing: Spacing.s2 + 2) {
+                    BrandMark(height: 24)
+                    Text("Physique")
+                        .font(.system(size: 22, weight: .heavy))
+                        .tracking(-0.4)
+                        .foregroundStyle(theme.text)
+                }
+                Spacer()
+                NavigationLink(destination: SettingsScreen()) {
+                    AvatarBubble(name: profiles.first?.displayName ?? "", size: 38)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("profileBubble")
+            }
+            BrandRule()
+        }
+        .padding(.top, Spacing.s2)
     }
 
     // MARK: - 1RM Tiles
 
-    private var liftTileGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.s2), count: 4), spacing: Spacing.s2) {
+    private var liftTileRow: some View {
+        HStack(spacing: Spacing.s2) {
             ForEach(Self.bigLifts, id: \.id) { lift in
                 NavigationLink(destination: LiftDetailScreen(liftId: lift.id, liftName: lift.name)) {
-                    liftTile(lift)
+                    LiftCardView(
+                        title: lift.short,
+                        snapshot: LiftStatsService.snapshot(
+                            liftId: lift.id, liftName: lift.name,
+                            entries: oneRepMaxes, sessions: sessions
+                        ),
+                        fallbackValue: activeProgram?.maxes[lift.id]
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("liftTile-\(lift.id)")
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Up next
+
+    @ViewBuilder
+    private var upNextSection: some View {
+        if let plan = coachPlan {
+            coachUpNextCard(plan)
+                .padding(.horizontal, Spacing.s4)
+        } else if let program = activeProgram,
+                  let definition = activeDefinition,
+                  let day = ProgramResolver.currentDay(of: definition, active: program) {
+            programUpNextCard(program: program, definition: definition, day: day)
+                .padding(.horizontal, Spacing.s4)
+        } else {
+            noPlanCard
+                .padding(.horizontal, Spacing.s4)
+        }
+    }
+
+    /// Tappable card in the prototype's style: play tile · program & week ·
+    /// next day · chevron, with the block status underneath.
+    private func programUpNextCard(program: ActiveProgram, definition: ProgramDefinition, day: SplitDay) -> some View {
+        let blockComplete = TrainingBlockService.isBlockComplete(program)
+        // Day label only (e.g. "OHP / Deadlift"); the split code ("B1") is noise here.
+        let dayTitle = day.sub ?? day.name
+
+        return VStack(spacing: 0) {
+            Button {
+                let sessionExercises = ProgramResolver.sessionExercises(
+                    for: program, definition: definition, catalog: exercises
+                )
+                guard !sessionExercises.isEmpty else {
+                    coordinator.selectedTab = .plan
+                    return
+                }
+                coordinator.launchWorkout(
+                    name: "\(definition.name) \u{00B7} \(day.name)",
+                    exercises: sessionExercises,
+                    advancesProgram: true
+                )
+            } label: {
+                HStack(alignment: .center, spacing: Spacing.s3) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(definition.name) \u{00B7} \(ProgramResolver.weekLabel(for: program, definition: definition))")
+                            .font(.system(size: TypeScale.body, weight: .bold))
+                            .foregroundStyle(theme.text)
+                            .lineLimit(1)
+                        HStack(spacing: Spacing.s2) {
+                            Text(dayTitle)
+                                .font(.system(size: TypeScale.footnote))
+                                .foregroundStyle(theme.text2)
+                                .lineLimit(1)
+                            Text("NEXT UP")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.6)
+                                .foregroundStyle(Color.accent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(theme.accentSoft)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    Spacer(minLength: Spacing.s2)
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Start")
+                            .font(.system(size: TypeScale.sub, weight: .bold))
+                    }
+                    .foregroundStyle(Color.onAccent)
+                    .padding(.horizontal, Spacing.s4)
+                    .padding(.vertical, Spacing.s2 + 2)
+                    .background(Color.accent)
+                    .clipShape(Capsule())
+                }
+                .padding(Spacing.s4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Start session")
+
+            if blockComplete {
+                Divider().background(theme.accentSoft)
+                Button {
+                    showBlockReview = true
+                } label: {
+                    HStack(spacing: Spacing.s2) {
+                        Image(systemName: "flag.checkered")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Block complete \u{00B7} review your maxes")
+                            .font(.system(size: TypeScale.footnote, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(Color.prGold)
+                    .padding(.horizontal, Spacing.s4)
+                    .padding(.vertical, Spacing.s2 + 2)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
+        .background(theme.accentTint)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .stroke(theme.accentSoft, lineWidth: 1)
+        )
     }
 
-    private func liftTile(_ lift: (id: String, name: String, short: String)) -> some View {
-        let history = LiftStatsService.history(
-            liftId: lift.id, liftName: lift.name,
-            entries: oneRepMaxes, sessions: sessions
+    private func coachUpNextCard(_ plan: CoachPlan) -> some View {
+        let nextDay = CoachPlanService.nextDay(plan, sessions: sessions)
+        let done = CoachPlanService.daysCompletedThisWeek(plan, sessions: sessions)
+
+        return Button {
+            guard let day = nextDay else { coordinator.selectedTab = .plan; return }
+            coordinator.launchWorkout(
+                name: day.name,
+                exercises: CoachPlanService.activeExercises(for: day, catalog: exercises),
+                coached: true,
+                coachPlanDayId: day.id
+            )
+        } label: {
+            HStack(spacing: Spacing.s3) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .fill(Color.accent)
+                        .frame(width: 42, height: 42)
+                    Image(systemName: nextDay == nil ? "checkmark" : "sparkles")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.onAccent)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(nextDay.map { "\($0.name)" } ?? "Week complete \u{2014} nice work")
+                        .font(.system(size: TypeScale.body, weight: .bold))
+                        .foregroundStyle(theme.text)
+                        .lineLimit(1)
+                    Text(nextDay.map { "\($0.focus) \u{00B7} \($0.sortedExercises.count) exercises \u{00B7} next up" }
+                         ?? "\(done) of \(plan.sortedDays.count) done this week")
+                        .font(.system(size: TypeScale.footnote))
+                        .foregroundStyle(theme.text2)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: Spacing.s2)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.accent)
+            }
+            .padding(Spacing.s4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(theme.accentTint)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .stroke(theme.accentSoft, lineWidth: 1)
         )
-        let values = history.suffix(10).map(\.value)
+    }
 
-        return VStack(spacing: Spacing.s1) {
-            Text(lift.short)
-                .font(.system(size: TypeScale.caption, weight: .bold))
-                .foregroundStyle(theme.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-
-            if let current = LiftStatsService.currentMax(in: history) {
-                Text(WeightFormatter.format(current))
-                    .font(.system(size: 18, weight: .bold))
-                    .monospacedDigit()
+    private var noPlanCard: some View {
+        Button {
+            coordinator.selectedTab = .plan
+        } label: {
+            VStack(spacing: 3) {
+                Text("No active program")
+                    .font(.system(size: TypeScale.body, weight: .bold))
                     .foregroundStyle(theme.text)
-            } else {
-                Text("\u{2014}")
-                    .font(.system(size: 18, weight: .bold))
+                Text("Pick a program in Plan and your sessions build themselves")
+                    .font(.system(size: TypeScale.footnote))
                     .foregroundStyle(theme.text3)
             }
-
-            if values.count >= 2 {
-                SparklineView(data: values, height: 18)
-            } else {
-                Rectangle()
-                    .fill(Color.clear)
-                    .frame(height: 18)
-                    .overlay(
-                        Capsule()
-                            .fill(theme.surface3)
-                            .frame(height: 2)
-                            .padding(.horizontal, 4)
-                    )
-            }
+            .frame(maxWidth: .infinity)
+            .padding(Spacing.s4)
+            .background(theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg)
+                    .stroke(theme.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+            )
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.s3)
-        .padding(.horizontal, Spacing.s1)
-        .background(theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.md)
-                .stroke(theme.hairline, lineWidth: 1)
-        )
+        .buttonStyle(.plain)
     }
 
-    // MARK: - Up Next (Program)
+    // MARK: - Recent
 
-    @ViewBuilder
-    private var programUpNextCard: some View {
-        if coachPlan == nil,
-           let program = activePrograms.first,
-           let definition = ProgramResolver.definition(for: program, customPrograms: customPrograms),
-           let day = ProgramResolver.currentDay(of: definition, active: program) {
-            VStack(alignment: .leading, spacing: Spacing.s3) {
-                HStack(spacing: Spacing.s2) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.accent)
-                    Text("Up next")
-                        .font(.system(size: TypeScale.caption, weight: .bold))
-                        .foregroundStyle(theme.text3)
-                        .tracking(0.5)
-                    Spacer()
-                    Text(ProgramResolver.weekLabel(for: program, definition: definition))
-                        .font(.system(size: TypeScale.footnote, weight: .semibold))
-                        .foregroundStyle(theme.text3)
-                }
-
-                Text(day.sub.map { "\(day.name) \u{00B7} \($0)" } ?? day.name)
-                    .font(.system(size: TypeScale.title3, weight: .bold))
-                    .foregroundStyle(theme.text)
-                Text(definition.name)
-                    .font(.system(size: TypeScale.sub))
-                    .foregroundStyle(theme.text2)
-
-                Button {
-                    let sessionExercises = ProgramResolver.sessionExercises(
-                        for: program, definition: definition, catalog: exercises
-                    )
-                    guard !sessionExercises.isEmpty else {
-                        coordinator.selectedTab = .plan
-                        return
-                    }
-                    coordinator.launchWorkout(
-                        name: "\(definition.name) \u{00B7} \(day.name)",
-                        exercises: sessionExercises,
-                        advancesProgram: true
-                    )
-                } label: {
-                    HStack(spacing: Spacing.s2) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14))
-                        Text("Start session")
-                    }
-                }
-                .buttonStyle(.physique(.primary))
-                .padding(.top, Spacing.s1)
-            }
-            .card()
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-        }
-    }
-
-    // MARK: - Up Next (Coach)
-
-    @ViewBuilder
-    private var upNextCard: some View {
-        if let plan = coachPlan {
-            VStack(alignment: .leading, spacing: Spacing.s3) {
-                HStack(spacing: Spacing.s2) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.accent)
-                    Text("Up next")
-                        .font(.system(size: TypeScale.caption, weight: .bold))
-                        .foregroundStyle(theme.text3)
-                        .tracking(0.5)
-                    Spacer()
-                    Text("\(CoachPlanService.daysCompletedThisWeek(plan, sessions: sessions)) of \(plan.sortedDays.count) this week")
-                        .font(.system(size: TypeScale.footnote, weight: .semibold))
-                        .foregroundStyle(theme.text3)
-                }
-
-                if let day = CoachPlanService.nextDay(plan, sessions: sessions) {
-                    Text(day.name)
-                        .font(.system(size: TypeScale.title3, weight: .bold))
-                        .foregroundStyle(theme.text)
-                    Text("\(day.focus) \u{00B7} \(day.sortedExercises.count) exercises")
-                        .font(.system(size: TypeScale.sub))
-                        .foregroundStyle(theme.text2)
-
-                    Button {
-                        coordinator.launchWorkout(
-                            name: day.name,
-                            exercises: CoachPlanService.activeExercises(for: day, catalog: exercises),
-                            coached: true,
-                            coachPlanDayId: day.id
-                        )
-                    } label: {
-                        HStack(spacing: Spacing.s2) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 14))
-                            Text("Start coached workout")
-                        }
-                    }
-                    .buttonStyle(.physique(.primary))
-                    .padding(.top, Spacing.s1)
-                } else {
-                    Text("Week complete \u{2014} nice work")
-                        .font(.system(size: TypeScale.title3, weight: .bold))
-                        .foregroundStyle(theme.text)
-                    Text("You\u{2019}ve finished every day in your plan this week. Rest up or repeat a session from the Plan tab.")
-                        .font(.system(size: TypeScale.sub))
-                        .foregroundStyle(theme.text2)
-                }
-            }
-            .card()
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-        }
-    }
-
-    // MARK: - Empty State
-
-    private var emptyHomeContent: some View {
-        VStack(spacing: Spacing.s4) {
-            upNextCard
-            programUpNextCard
-
-            // Hero card
-            VStack(spacing: Spacing.s4) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: Radius.md)
-                        .fill(Color.accent.opacity(0.22))
-                        .frame(width: 52, height: 52)
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(Color.accent)
-                }
-
-                Text("Let\u{2019}s log your first lift")
-                    .font(.system(size: TypeScale.title3, weight: .bold))
-                    .foregroundStyle(theme.text)
-
-                Text("Start a session and Physique begins tracking your strength, volume and records automatically.")
-                    .font(.system(size: TypeScale.sub))
-                    .foregroundStyle(theme.text2)
-                    .multilineTextAlignment(.center)
-
-                VStack(spacing: Spacing.s3) {
-                    Button {
-                        coordinator.launchBlankWorkout()
-                    } label: {
-                        HStack(spacing: Spacing.s2) {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 14))
-                            Text("Start workout now")
-                        }
-                    }
-                    .buttonStyle(.physique(.primary))
-
-                    Button {
-                        coordinator.selectedTab = .plan
-                    } label: {
-                        HStack(spacing: Spacing.s2) {
-                            Image(systemName: "clipboard.fill")
-                                .font(.system(size: 14))
-                            Text("Browse templates")
-                        }
-                    }
-                    .buttonStyle(.physique(.ghost))
-                }
-                .padding(.top, Spacing.s2)
-            }
-            .card()
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-
-            // Empty stats
-            SectionLabel(text: "Your week")
-                .padding(.top, Spacing.s4)
-
-            HStack(spacing: Spacing.s3) {
-                emptyStatTile("Streak", icon: "flame.fill")
-                emptyStatTile("Workouts", icon: "dumbbell.fill")
-                emptyStatTile("Volume", icon: "chart.bar.fill")
-            }
-            .padding(.horizontal, Spacing.s4)
-        }
-    }
-
-    private func emptyStatTile(_ label: String, icon: String) -> some View {
-        VStack(spacing: Spacing.s2) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundStyle(theme.text3)
-            Text("\u{2014}")
-                .font(.system(size: 22, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(theme.text3)
-            Text(label.uppercased())
-                .font(.system(size: TypeScale.caption, weight: .semibold))
-                .foregroundStyle(theme.text3)
-                .tracking(0.5)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.s4)
-        .background(theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.md)
-                .stroke(theme.hairline, style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
-        )
-    }
-
-    // MARK: - Populated State
-
-    private var populatedHomeContent: some View {
+    private var recentSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            upNextCard
-            programUpNextCard
-
-            // Start workout
-            Button {
-                coordinator.launchBlankWorkout()
-            } label: {
-                HStack(spacing: Spacing.s2) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 14))
-                    Text(coachPlan != nil ? "Start a quick workout" : "Start workout now")
-                }
+            HStack {
+                SectionLabel(text: "Recent")
+                Spacer()
+                Button("All history") { coordinator.selectedTab = .history }
+                    .font(.system(size: TypeScale.footnote, weight: .bold))
+                    .foregroundStyle(Color.accent)
+                    .padding(.trailing, Spacing.s5)
             }
-            .buttonStyle(.physique(coachPlan != nil ? .secondary : .primary))
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-
-            // Quick stats
-            let summary = ProgressEngine.computeWeekSummary(sessions: sessions)
-            HStack(spacing: Spacing.s3) {
-                StatTileView(label: "Streak", value: "\(summary.streakWeeks)", unit: "wk", icon: "flame.fill")
-                StatTileView(label: "This week", value: "\(summary.workoutsThisWeek)", unit: "lifts", icon: "dumbbell.fill")
-                StatTileView(label: "Volume", value: WeightFormatter.formatVolume(summary.weeklyVolume), icon: "chart.bar.fill")
-            }
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-
-            // Recent sessions
-            SectionLabel(text: "Recent")
-                .padding(.top, Spacing.s5)
-                .padding(.bottom, Spacing.s3)
+            .padding(.top, Spacing.s6)
+            .padding(.bottom, Spacing.s3)
 
             VStack(spacing: 0) {
                 ForEach(Array(sessions.prefix(3).enumerated()), id: \.element.id) { index, session in
                     NavigationLink(destination: SessionDetailScreen(session: session)) {
                         HStack(spacing: Spacing.s3) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: Radius.xs)
-                                    .fill(theme.surface2)
-                                    .frame(width: 34, height: 34)
-                                Image(systemName: "dumbbell.fill")
-                                    .font(.system(size: 15))
-                                    .foregroundStyle(theme.text2)
-                            }
-
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 7) {
                                     Text(session.name)
                                         .font(.system(size: TypeScale.body, weight: .semibold))
                                         .foregroundStyle(theme.text)
+                                        .lineLimit(1)
                                     if session.prCount > 0 {
                                         PillView(text: "\(session.prCount)", tone: .pr, icon: "flame.fill")
                                     }
@@ -384,11 +342,9 @@ struct HomeScreen: View {
                                     .monospacedDigit()
                                     .foregroundStyle(theme.text3)
                             }
-
                             Spacer()
-
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(theme.text3)
                         }
                         .padding(.horizontal, Spacing.s4)
@@ -399,7 +355,7 @@ struct HomeScreen: View {
                     if index < min(sessions.count, 3) - 1 {
                         Divider()
                             .background(theme.hairline)
-                            .padding(.leading, 62)
+                            .padding(.leading, Spacing.s4)
                     }
                 }
             }

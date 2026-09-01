@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 
+/// The self-guided plan: one multi-week **program** (sessions generated from
+/// locked training maxes) plus any number of single-workout **templates**.
 struct PlanScreen: View {
     @Environment(\.theme) var theme
     @Environment(\.modelContext) private var modelContext
@@ -12,9 +14,10 @@ struct PlanScreen: View {
     @Query private var exerciseCatalog: [Exercise]
 
     @State private var selectedMode: PlanMode?
+    @State private var showBlockReview = false
 
     enum PlanMode: String, CaseIterable {
-        case templates = "Templates"
+        case plan = "My Plan"
         case coach = "AI Coach"
     }
 
@@ -23,15 +26,13 @@ struct PlanScreen: View {
             VStack(spacing: 0) {
                 ScreenHeader(title: "Plan")
 
-                // Mode toggle
                 modeToggle
                     .padding(.horizontal, Spacing.s4)
 
-                // Body
                 ScrollView {
                     switch resolvedMode {
-                    case .templates:
-                        templatesBody
+                    case .plan:
+                        planBody
                     case .coach:
                         CoachBody()
                     }
@@ -41,17 +42,26 @@ struct PlanScreen: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 if selectedMode == nil {
-                    selectedMode = profiles.first?.trainingMode == "coach" ? .coach : .templates
+                    selectedMode = profiles.first?.trainingMode == "coach" ? .coach : .plan
                 }
             }
             .onChange(of: profiles.first?.trainingMode) { _, newMode in
-                selectedMode = newMode == "coach" ? .coach : .templates
+                selectedMode = newMode == "coach" ? .coach : .plan
+            }
+            .sheet(isPresented: $showBlockReview) {
+                if let program = activePrograms.first,
+                   let definition = ProgramResolver.definition(for: program, customPrograms: customPrograms) {
+                    TrainingMaxReviewSheet(active: program, definition: definition)
+                        .environment(coordinator)
+                        .environment(\.theme, PhysiqueColors.dark)
+                        .preferredColorScheme(.dark)
+                }
             }
         }
     }
 
     private var resolvedMode: PlanMode {
-        selectedMode ?? (profiles.first?.trainingMode == "coach" ? .coach : .templates)
+        selectedMode ?? (profiles.first?.trainingMode == "coach" ? .coach : .plan)
     }
 
     // MARK: - Mode Toggle
@@ -69,11 +79,7 @@ struct PlanScreen: View {
                         .foregroundStyle(resolvedMode == mode ? theme.text : theme.text3)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Spacing.s3)
-                        .background(
-                            resolvedMode == mode
-                                ? theme.surface2
-                                : Color.clear
-                        )
+                        .background(resolvedMode == mode ? theme.surface2 : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                 }
                 .buttonStyle(.plain)
@@ -88,172 +94,102 @@ struct PlanScreen: View {
         )
     }
 
-    // MARK: - Templates Body
+    // MARK: - Plan body
 
-    private var templatesBody: some View {
+    private var planBody: some View {
         VStack(spacing: 0) {
+            programSection
+            templatesSection
+            Spacer().frame(height: Spacing.s10)
+        }
+    }
+
+    /// Section heading with an icon, a kind pill and a one-line explainer so
+    /// programs and templates read as clearly different things.
+    private func sectionHeader(icon: String, title: String, kind: String, tone: PillTone, blurb: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s1) {
+            HStack(spacing: Spacing.s2) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(tone == .accent ? Color.accent : theme.text2)
+                Text(title.uppercased())
+                    .font(.system(size: TypeScale.caption, weight: .semibold))
+                    .foregroundStyle(theme.text3)
+                    .tracking(0.8)
+                PillView(text: kind, tone: tone)
+                Spacer()
+            }
+            Text(blurb)
+                .font(.system(size: TypeScale.footnote))
+                .foregroundStyle(theme.text3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, Spacing.s5)
+    }
+
+    // MARK: - Program section
+
+    private var programSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(
+                icon: "calendar.badge.clock",
+                title: "Program",
+                kind: "Multi-week",
+                tone: .accent,
+                blurb: "One at a time. Each session is generated from training maxes that stay locked for the block."
+            )
+            .padding(.top, Spacing.s5)
+            .padding(.bottom, Spacing.s3)
+
             if let program = activePrograms.first {
-                // Active program card
                 activeProgramCard(program)
                     .padding(.horizontal, Spacing.s4)
-                    .padding(.top, Spacing.s4)
             } else {
-                // Empty state
-                emptyTemplatesState
+                emptyProgramState
+                    .padding(.horizontal, Spacing.s4)
             }
 
-            // Browse library button
             NavigationLink(destination: LibraryBrowseScreen()) {
                 HStack(spacing: Spacing.s2) {
                     Image(systemName: "books.vertical.fill")
                         .font(.system(size: 14))
-                    Text("Browse library")
+                    Text(activePrograms.isEmpty ? "Browse programs" : "Browse programs")
                 }
             }
             .buttonStyle(.physique(.secondary))
             .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s4)
-
-            // My Templates
-            myTemplatesSection
-
-            Spacer()
-                .frame(height: Spacing.s10)
+            .padding(.top, Spacing.s3)
         }
     }
 
-    // MARK: - My Templates
-
-    private var myTemplatesSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                SectionLabel(text: "My Templates")
-                Spacer()
-                NavigationLink(destination: TemplateEditorScreen()) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("New")
-                            .font(.system(size: TypeScale.sub, weight: .semibold))
-                    }
-                    .foregroundStyle(Color.accent)
-                }
-            }
-            .padding(.horizontal, Spacing.s4)
-            .padding(.top, Spacing.s6)
-            .padding(.bottom, Spacing.s3)
-
-            if templates.isEmpty {
-                Text("Save a program from the library or create your own to see it here.")
-                    .font(.system(size: TypeScale.sub))
-                    .foregroundStyle(theme.text3)
-                    .padding(.horizontal, Spacing.s4)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
-                        templateRow(template)
-                        if index < templates.count - 1 {
-                            Divider()
-                                .background(theme.hairline)
-                                .padding(.leading, Spacing.s4)
-                        }
-                    }
-                }
-                .background(theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.lg)
-                        .stroke(theme.hairline, lineWidth: 1)
-                )
-                .padding(.horizontal, Spacing.s4)
-            }
-        }
-    }
-
-    private func templateRow(_ template: WorkoutTemplate) -> some View {
-        HStack(spacing: Spacing.s3) {
-            ZStack {
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(theme.surface2)
-                    .frame(width: 38, height: 38)
-                Image(systemName: template.kind == .program ? "doc.text.fill" : "square.and.pencil")
-                    .font(.system(size: 16))
-                    .foregroundStyle(theme.text2)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(template.name)
-                    .font(.system(size: TypeScale.body, weight: .semibold))
-                    .foregroundStyle(theme.text)
-                Text(template.kind == .program ? "Program" : "\(template.items.count) exercises")
-                    .font(.system(size: TypeScale.footnote))
-                    .foregroundStyle(theme.text3)
-            }
-
-            Spacer()
-
-            Button {
-                startTemplate(template)
-            } label: {
-                Text("Start")
-                    .font(.system(size: TypeScale.sub, weight: .semibold))
-                    .foregroundStyle(Color.onAccent)
-                    .padding(.horizontal, Spacing.s4)
-                    .padding(.vertical, Spacing.s2)
-                    .background(Color.accent)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, Spacing.s4)
-        .padding(.vertical, Spacing.s3)
-        .contextMenu {
-            Button(role: .destructive) {
-                deleteTemplate(template)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-    }
-
-    private func startTemplate(_ template: WorkoutTemplate) {
-        let exercises = TemplateService.exercises(from: template)
-        guard !exercises.isEmpty else {
-            coordinator.showToast("This template has no exercises", icon: "exclamationmark.triangle")
-            return
-        }
-        coordinator.launchWorkout(name: template.name, exercises: exercises)
-    }
-
-    private func deleteTemplate(_ template: WorkoutTemplate) {
-        modelContext.delete(template)
-        try? modelContext.save()
-    }
-
-    private var emptyTemplatesState: some View {
-        VStack(spacing: Spacing.s4) {
+    private var emptyProgramState: some View {
+        VStack(spacing: Spacing.s3) {
             ZStack {
                 RoundedRectangle(cornerRadius: Radius.md)
-                    .fill(theme.surface2)
-                    .frame(width: 52, height: 52)
-                Image(systemName: "calendar")
-                    .font(.system(size: 24))
-                    .foregroundStyle(theme.text3)
+                    .fill(Color.accent.opacity(0.18))
+                    .frame(width: 48, height: 48)
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color.accent)
             }
-
-            VStack(spacing: Spacing.s2) {
+            VStack(spacing: Spacing.s1) {
                 Text("No active program")
                     .font(.system(size: TypeScale.callout, weight: .semibold))
                     .foregroundStyle(theme.text)
-                Text("Pick a proven template from the library and Physique will generate your daily sessions automatically.")
+                Text("Pick a proven program or build your own in %TM. Your 1RMs fill in the numbers.")
                     .font(.system(size: TypeScale.sub))
                     .foregroundStyle(theme.text2)
                     .multilineTextAlignment(.center)
             }
         }
-        .card()
-        .padding(.horizontal, Spacing.s4)
-        .padding(.top, Spacing.s4)
+        .frame(maxWidth: .infinity)
+        .padding(Spacing.s5)
+        .background(theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .stroke(theme.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+        )
     }
 
     @ViewBuilder
@@ -262,7 +198,6 @@ struct PlanScreen: View {
            let day = ProgramResolver.currentDay(of: definition, active: program) {
             nextSessionCard(program: program, definition: definition, day: day)
         } else {
-            // Definition gone (e.g. custom program deleted) — degrade gracefully.
             VStack(alignment: .leading, spacing: Spacing.s2) {
                 Text("Program unavailable")
                     .font(.system(size: TypeScale.callout, weight: .bold))
@@ -273,14 +208,23 @@ struct PlanScreen: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .card()
+            .contextMenu {
+                Button(role: .destructive) {
+                    modelContext.delete(program)
+                    try? modelContext.save()
+                } label: {
+                    Label("Deactivate program", systemImage: "xmark.circle")
+                }
+            }
         }
     }
 
     private func nextSessionCard(program: ActiveProgram, definition: ProgramDefinition, day: SplitDay) -> some View {
         let exercises = ProgramResolver.sessionExercises(for: program, definition: definition, catalog: exerciseCatalog)
+        let blockComplete = TrainingBlockService.isBlockComplete(program)
 
         return VStack(alignment: .leading, spacing: Spacing.s3) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(definition.name) \u{00B7} \(ProgramResolver.weekLabel(for: program, definition: definition))")
                         .font(.system(size: TypeScale.caption, weight: .bold))
@@ -290,10 +234,50 @@ struct PlanScreen: View {
                         .font(.system(size: TypeScale.title3, weight: .bold))
                         .foregroundStyle(theme.text)
                 }
-
                 Spacer()
-
                 PillView(text: "Active", tone: .success, icon: "checkmark")
+            }
+
+            // Block status + progress
+            VStack(alignment: .leading, spacing: Spacing.s1) {
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: blockComplete ? "flag.checkered" : "lock.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(blockComplete
+                         ? "Block complete \u{00B7} review your maxes"
+                         : "Block \u{00B7} \(TrainingBlockService.blockLabel(program)) \u{00B7} maxes locked")
+                        .font(.system(size: TypeScale.footnote, weight: .semibold))
+                }
+                .foregroundStyle(blockComplete ? Color.prGold : theme.text2)
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(theme.surface3)
+                        Capsule()
+                            .fill(blockComplete ? Color.prGold : Color.accent)
+                            .frame(width: geo.size.width * TrainingBlockService.blockProgress(program))
+                    }
+                }
+                .frame(height: 4)
+            }
+
+            if blockComplete {
+                Button {
+                    showBlockReview = true
+                } label: {
+                    HStack(spacing: Spacing.s2) {
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Review training maxes")
+                    }
+                    .font(.system(size: TypeScale.sub, weight: .bold))
+                    .foregroundStyle(Color.prGold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.s3)
+                    .background(Color.prSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                }
+                .buttonStyle(.plain)
             }
 
             // Session rows with computed weights
@@ -327,8 +311,7 @@ struct PlanScreen: View {
                     .padding(.vertical, Spacing.s2)
 
                     if index < exercises.count - 1 {
-                        Divider()
-                            .background(theme.hairline)
+                        Divider().background(theme.hairline)
                     }
                 }
             }
@@ -345,8 +328,19 @@ struct PlanScreen: View {
             .buttonStyle(.physique(.primary))
             .padding(.top, Spacing.s1)
         }
-        .card()
+        .padding(Spacing.s5)
+        .background(theme.accentTint)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .stroke(theme.accentSoft, lineWidth: 1)
+        )
         .contextMenu {
+            Button {
+                showBlockReview = true
+            } label: {
+                Label("Update training maxes", systemImage: "lock.open")
+            }
             Button {
                 ProgramResolver.advance(program, definition: definition)
                 try? modelContext.save()
@@ -362,7 +356,7 @@ struct PlanScreen: View {
         }
     }
 
-    /// "3 sets \u{00D7} 5" for straight sets, "3 sets \u{00B7} top set" for ramps.
+    /// "3 × 5" for straight sets, "3 sets · top set" for ramps.
     private func schemeLabel(for working: [ActiveSet]) -> String {
         guard let first = working.first else { return "" }
         let uniform = working.allSatisfy { $0.reps == first.reps && $0.weight == first.weight }
@@ -383,5 +377,150 @@ struct PlanScreen: View {
             advancesProgram: true
         )
     }
-}
 
+    // MARK: - Templates section
+
+    private var templatesSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(
+                icon: "doc.text",
+                title: "Templates",
+                kind: "Single workouts",
+                tone: .neutral,
+                blurb: "Reusable workouts with fixed sets, reps and weights. Start one any time \u{2014} they don\u{2019}t touch your program."
+            )
+            .padding(.top, Spacing.s8)
+            .padding(.bottom, Spacing.s3)
+
+            if templates.isEmpty {
+                Text("No templates yet. Build one from scratch, or save a day from any program.")
+                    .font(.system(size: TypeScale.sub))
+                    .foregroundStyle(theme.text3)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .padding(Spacing.s5)
+                    .background(theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.lg)
+                            .stroke(theme.hairline, style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                    )
+                    .padding(.horizontal, Spacing.s4)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
+                        templateRow(template)
+                        if index < templates.count - 1 {
+                            Divider()
+                                .background(theme.hairline)
+                                .padding(.leading, Spacing.s4)
+                        }
+                    }
+                }
+                .background(theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.lg)
+                        .stroke(theme.hairline, lineWidth: 1)
+                )
+                .padding(.horizontal, Spacing.s4)
+            }
+
+            NavigationLink(destination: TemplateEditorScreen()) {
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("New template")
+                }
+            }
+            .buttonStyle(.physique(.ghost))
+            .padding(.horizontal, Spacing.s4)
+            .padding(.top, Spacing.s3)
+        }
+    }
+
+    /// Tapping the row opens the template to view/edit; the Start pill runs it.
+    private func templateRow(_ template: WorkoutTemplate) -> some View {
+        NavigationLink(destination: templateDestination(template)) {
+            HStack(spacing: Spacing.s3) {
+                ZStack {
+                    Circle()
+                        .fill(theme.surface2)
+                        .frame(width: 38, height: 38)
+                    Image(systemName: template.kind == .program ? "calendar.day.timeline.left" : "doc.text")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(theme.text2)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(template.name)
+                        .font(.system(size: TypeScale.body, weight: .semibold))
+                        .foregroundStyle(theme.text)
+                    Text(templateSubtitle(template))
+                        .font(.system(size: TypeScale.footnote))
+                        .foregroundStyle(theme.text3)
+                }
+
+                Spacer()
+
+                Button {
+                    startTemplate(template)
+                } label: {
+                    Text("Start")
+                        .font(.system(size: TypeScale.sub, weight: .semibold))
+                        .foregroundStyle(Color.onAccent)
+                        .padding(.horizontal, Spacing.s4)
+                        .padding(.vertical, Spacing.s2)
+                        .background(Color.accent)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.text3)
+            }
+            .padding(.horizontal, Spacing.s4)
+            .padding(.vertical, Spacing.s3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                deleteTemplate(template)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func templateSubtitle(_ template: WorkoutTemplate) -> String {
+        let count = TemplateService.exercises(from: template).count
+        let exercises = "\(count) exercise\(count == 1 ? "" : "s")"
+        switch template.kind {
+        case .program:
+            let programName = template.programId.flatMap { BuiltInPrograms.find($0)?.name } ?? "program"
+            return "\(exercises) \u{00B7} from \(programName) \u{00B7} tap to edit"
+        case .custom:
+            return "\(exercises) \u{00B7} tap to edit"
+        }
+    }
+
+    private func templateDestination(_ template: WorkoutTemplate) -> some View {
+        TemplateEditorScreen(existing: template)
+    }
+
+    private func startTemplate(_ template: WorkoutTemplate) {
+        let exercises = TemplateService.exercises(from: template)
+        guard !exercises.isEmpty else {
+            coordinator.showToast("This template has no exercises", icon: "exclamationmark.triangle")
+            return
+        }
+        coordinator.launchWorkout(name: template.name, exercises: exercises)
+    }
+
+    private func deleteTemplate(_ template: WorkoutTemplate) {
+        modelContext.delete(template)
+        try? modelContext.save()
+    }
+}

@@ -9,13 +9,15 @@ final class OnboardingViewModel {
     var daysPerWeek: Int = 4
     var units: WeightUnit = .lb
     var equipment: Set<ExerciseType> = []
+    /// Best single per big lift, keyed by lift id; optional, entered as text.
+    var maxes: [String: String] = [:]
     var path: String? // "coach" or "template"
     var isBuilding: Bool = false
 
     private let coachService = CoachPlanService()
 
     enum OnboardingStep: Int, CaseIterable {
-        case welcome, goal, level, schedule, equipment, path, ready
+        case welcome, goal, level, schedule, equipment, maxes, path, ready
 
         var progress: Double {
             guard self != .welcome, self != .ready else { return 0 }
@@ -29,7 +31,7 @@ final class OnboardingViewModel {
 
     var canContinue: Bool {
         switch step {
-        case .welcome, .schedule, .ready: true
+        case .welcome, .schedule, .maxes, .ready: true
         case .goal: goal != nil
         case .level: level != nil
         case .equipment: !equipment.isEmpty
@@ -42,6 +44,7 @@ final class OnboardingViewModel {
         case .welcome: "Get started"
         case .ready: "Enter Physique"
         case .path: "Build my plan"
+        case .maxes: enteredMaxes.isEmpty ? "Skip for now" : "Continue"
         default: "Continue"
         }
     }
@@ -82,7 +85,29 @@ final class OnboardingViewModel {
         step = prevStep
     }
 
+    static let bigLifts: [(id: String, name: String)] = [
+        ("squat", "Back Squat"), ("bench", "Bench Press"), ("deadlift", "Deadlift"), ("ohp", "Overhead Press"),
+    ]
+
+    /// Parsed, positive maxes the user typed.
+    var enteredMaxes: [(id: String, name: String, weight: Double)] {
+        Self.bigLifts.compactMap { lift in
+            guard let text = maxes[lift.id], let weight = Double(text.trimmingCharacters(in: .whitespaces)), weight > 0 else { return nil }
+            return (lift.id, lift.name, weight)
+        }
+    }
+
+    var maxesDisplayName: String {
+        let entered = enteredMaxes
+        guard !entered.isEmpty else { return "Skipped" }
+        return entered.map { WeightFormatter.format($0.weight) }.joined(separator: " / ")
+    }
+
     func complete(context: ModelContext) {
+        // Stated maxes are tested data points in the e1RM stream.
+        for max in enteredMaxes {
+            context.insert(OneRepMaxEntry(exerciseId: max.id, exerciseName: max.name, weight: max.weight, unit: units, date: Date()))
+        }
         let profile = UserProfile(
             goal: goal,
             experienceLevel: level,

@@ -10,10 +10,13 @@ final class CustomProgram {
     var createdAt: Date = Date()
     var daysData: Data = Data()
     var wavePcts: [Int] = [70, 80, 90]
+    /// Weeks per wave: 1 for a 3-week block, 2 for a 6-week block.
+    var waveWeeks: Int = 2
 
-    init(name: String, days: [CustomProgramDay], wavePcts: [Int]) {
+    init(name: String, days: [CustomProgramDay], wavePcts: [Int], waveWeeks: Int = 2) {
         self.name = name
         self.wavePcts = wavePcts
+        self.waveWeeks = max(1, waveWeeks)
         self.daysData = (try? JSONEncoder().encode(days)) ?? Data()
     }
 }
@@ -41,13 +44,24 @@ extension CustomProgram {
     /// The id stored on `ActiveProgram.programId` when this program is activated.
     var programId: String { "custom-\(id.uuidString)" }
 
+    /// Total weeks in one block of this program.
+    var blockWeeks: Int { max(1, wavePcts.count) * max(1, waveWeeks) }
+
+    /// "Wk 1–2" / "Wk 3" style label for a wave index.
+    func waveLabel(_ index: Int) -> String {
+        let span = max(1, waveWeeks)
+        let start = index * span + 1
+        return span == 1 ? "Wk \(start)" : "Wk \(start)\u{2013}\(start + span - 1)"
+    }
+
     /// Builds a runtime `ProgramDefinition` for the given 0-based week so the
     /// existing `SessionBuilder` path works unchanged. Later waves shift every
     /// row's %TM by the wave's offset from wave 1 (70/80/90 → +0/+10/+20).
     func definition(forWeek week: Int) -> ProgramDefinition {
         let days = self.days
         let waves = wavePcts.isEmpty ? [70] : wavePcts
-        let waveIndex = min(max(0, week) / 2, waves.count - 1)
+        let span = max(1, waveWeeks)
+        let waveIndex = min(max(0, week) / span, waves.count - 1)
         let offset = waves[waveIndex] - waves[0]
 
         var blocks: [ProgramBlock] = []
@@ -69,6 +83,8 @@ extension CustomProgram {
         }
 
         let waveSummary = waves.map { "\($0)%" }.joined(separator: " \u{2192} ")
+        let total = waves.count * span
+        let waveWord = span == 1 ? "1-week" : "\(span)-week"
         return ProgramDefinition(
             id: programId,
             name: name,
@@ -76,15 +92,15 @@ extension CustomProgram {
             glyph: "square.and.pencil",
             tags: ["Custom"],
             days: "\(days.count) days",
-            cycle: "\(waves.count * 2)-week wave",
+            cycle: "\(total)-week block",
             basis: .trainingMax,
             layout: .straight,
-            blurb: "Your own program, authored in %TM. Weights are computed from your training maxes and wave through \(waveSummary) in 2-week blocks.",
-            cycleWeeks: waves.count * 2,
+            blurb: "Your own program, authored in %TM. Weights are computed from your training maxes and wave through \(waveSummary) in \(waveWord) steps over a \(total)-week block.",
+            cycleWeeks: total,
             split: split,
             liftIds: liftIds,
             blocks: blocks,
-            progressNote: "Each 2-week wave raises the working percentage: \(waveSummary). After the last wave, log new maxes and restart the cycle."
+            progressNote: "Each \(waveWord) wave raises the working percentage: \(waveSummary). Your training maxes stay locked for the \(total)-week block; at the end Physique suggests new ones from your workouts."
         )
     }
 }

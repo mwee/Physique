@@ -34,11 +34,11 @@ enum TemplateService {
 
     private static func customExercises(from template: WorkoutTemplate) -> [ActiveExercise] {
         template.sortedItems.map { item in
-            let sets = (1...max(1, item.targetSets)).map { n in
+            let sets = item.setSpecs.enumerated().map { index, spec in
                 ActiveSet(
-                    type: .working(n),
-                    weight: item.targetWeight,
-                    reps: item.targetReps
+                    type: .working(index + 1),
+                    weight: spec.weight,
+                    reps: spec.reps
                 )
             }
             let slug = item.name.lowercased().replacingOccurrences(of: " ", with: "_")

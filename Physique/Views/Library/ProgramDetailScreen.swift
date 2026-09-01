@@ -7,15 +7,43 @@ struct ProgramDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppCoordinator.self) var coordinator
     @Query(sort: \OneRepMaxEntry.date, order: .reverse) private var oneRepMaxes: [OneRepMaxEntry]
+    @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @Query private var profiles: [UserProfile]
+    @Query(sort: \CustomProgram.createdAt, order: .reverse) private var customPrograms: [CustomProgram]
+    @Query private var activePrograms: [ActiveProgram]
+
     let program: ProgramDefinition
+    /// Seed values when opened from a saved program template.
+    var initialMaxes: [String: Double]? = nil
+    var initialTMPct: Int? = nil
+
     @State private var maxes: [String: Double] = [:]
     @State private var tmPct: Int = 90
+    @State private var blockWeeks: Int = 6
     @State private var includeWarmups: Bool = false
     @State private var unit: WeightUnit = .lb
     @State private var expandedDay: Int?
+    @State private var configured = false
+
+    private var isCustom: Bool { program.id.hasPrefix("custom-") }
+
+    private var customProgram: CustomProgram? {
+        customPrograms.first { $0.programId == program.id }
+    }
+
+    /// Custom programs are read live so edits made in the builder show up
+    /// when the user pops back here.
+    private var resolvedProgram: ProgramDefinition {
+        customProgram?.definition(forWeek: 0) ?? program
+    }
+
+    private var isActive: Bool {
+        activePrograms.first?.programId == program.id
+    }
 
     var body: some View {
+        let program = resolvedProgram
+
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
@@ -33,13 +61,17 @@ struct ProgramDetailScreen: View {
                 .padding(.horizontal, Spacing.s4)
                 .padding(.top, Spacing.s4)
 
-                // Tags + meta
-                HStack(spacing: Spacing.s2) {
+                // Tags + meta (wraps to a second row when needed)
+                FlowLayout {
+                    PillView(text: "Program", tone: .accent, icon: "calendar.badge.clock")
                     ForEach(program.tags, id: \.self) { tag in
-                        PillView(text: tag, tone: .accent)
+                        PillView(text: tag, tone: .neutral)
                     }
                     PillView(text: program.days, tone: .neutral)
                     PillView(text: program.cycle, tone: .neutral)
+                    if isActive {
+                        PillView(text: "Active", tone: .success, icon: "checkmark")
+                    }
                 }
                 .padding(.horizontal, Spacing.s4)
                 .padding(.top, Spacing.s3)
@@ -52,64 +84,18 @@ struct ProgramDetailScreen: View {
                     .padding(.horizontal, Spacing.s4)
                     .padding(.top, Spacing.s4)
 
-                // 1RM Steppers
+                // Maxes
                 SectionLabel(text: "Your maxes")
                     .padding(.top, Spacing.s6)
                     .padding(.bottom, Spacing.s3)
 
                 VStack(spacing: Spacing.s3) {
                     ForEach(program.liftIds, id: \.self) { liftId in
-                        let liftName = BuiltInPrograms.lifts[liftId]?.name ?? liftId
-                        HStack {
-                            Text(liftName)
-                                .font(.system(size: TypeScale.body, weight: .semibold))
-                                .foregroundStyle(theme.text)
-
-                            Spacer()
-
-                            HStack(spacing: Spacing.s2) {
-                                Button {
-                                    maxes[liftId, default: defaultMax(liftId)] -= unit.increment
-                                } label: {
-                                    Image(systemName: "minus")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(theme.text)
-                                        .frame(width: 32, height: 32)
-                                        .background(theme.surface2)
-                                        .clipShape(Circle())
-                                }
-
-                                Text("\(WeightFormatter.format(maxes[liftId, default: defaultMax(liftId)])) \(unit.rawValue)")
-                                    .font(.system(size: TypeScale.body, weight: .bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(theme.text)
-                                    .frame(width: 80, alignment: .center)
-
-                                Button {
-                                    maxes[liftId, default: defaultMax(liftId)] += unit.increment
-                                } label: {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(Color.onAccent)
-                                        .frame(width: 32, height: 32)
-                                        .background(Color.accent)
-                                        .clipShape(Circle())
-                                }
-                            }
-                        }
-                        .padding(.horizontal, Spacing.s4)
-                        .padding(.vertical, Spacing.s3)
-                        .background(theme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Radius.md)
-                                .stroke(theme.hairline, lineWidth: 1)
-                        )
-                        .padding(.horizontal, Spacing.s4)
+                        maxRow(liftId, program: program)
                     }
                 }
 
-                // Options row (TM% for programs that use it)
+                // TM% for programs that use it
                 if program.basis == .trainingMax {
                     SectionLabel(text: "Training Max")
                         .padding(.top, Spacing.s6)
@@ -131,12 +117,20 @@ struct ProgramDetailScreen: View {
                     .padding(.horizontal, Spacing.s4)
                 }
 
-                // Week 1 preview with the user's maxes
+                // Training block
+                SectionLabel(text: "Training block")
+                    .padding(.top, Spacing.s6)
+                    .padding(.bottom, Spacing.s3)
+
+                blockSection(program: program)
+                    .padding(.horizontal, Spacing.s4)
+
+                // Week 1 preview
                 SectionLabel(text: "Week 1 \u{00B7} with your maxes")
                     .padding(.top, Spacing.s6)
                     .padding(.bottom, Spacing.s3)
 
-                weekOnePreview
+                weekOnePreview(program: program)
                     .padding(.horizontal, Spacing.s4)
 
                 // Progression note
@@ -168,40 +162,203 @@ struct ProgramDetailScreen: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: Spacing.s2) {
                 Button {
-                    activateProgram()
+                    activateProgram(program)
                 } label: {
-                    Text("Use this program")
+                    HStack(spacing: Spacing.s2) {
+                        Image(systemName: "lock.fill").font(.system(size: 13))
+                        Text(isActive ? "Restart this program" : "Use this program")
+                    }
                 }
                 .buttonStyle(.physique(.primary))
 
-                if !program.id.hasPrefix("custom-") {
-                    Button {
-                        saveAsTemplate()
-                    } label: {
-                        Text("Save to My Templates")
+                if let custom = customProgram {
+                    NavigationLink(destination: ProgramBuilderScreen(existing: custom)) {
+                        HStack(spacing: Spacing.s2) {
+                            Image(systemName: "square.and.pencil").font(.system(size: 14))
+                            Text("Edit program")
+                        }
                     }
                     .buttonStyle(.physique(.secondary))
+                } else if !isCustom {
+                    Menu {
+                        ForEach(Array(program.split.enumerated()), id: \.element.id) { index, day in
+                            Button {
+                                saveDayAsTemplate(index, day: day, program: program)
+                            } label: {
+                                Label(day.sub.map { "\(day.name) \u{00B7} \($0)" } ?? day.name, systemImage: "doc.text")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: Spacing.s2) {
+                            Image(systemName: "doc.text").font(.system(size: 14))
+                            Text("Save a day as a template")
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.accent.opacity(0.22))
+                        .foregroundStyle(Color.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                    }
                 }
             }
             .padding(.horizontal, Spacing.s4)
             .padding(.vertical, Spacing.s4)
             .background(.ultraThinMaterial)
         }
-        .onAppear {
-            // Seed default maxes
-            for liftId in program.liftIds {
-                if maxes[liftId] == nil {
-                    maxes[liftId] = defaultMax(liftId)
-                }
+        .onAppear { configure(program) }
+    }
+
+    // MARK: - Setup
+
+    private func configure(_ program: ProgramDefinition) {
+        guard !configured else { return }
+        configured = true
+        unit = profiles.first?.weightUnit ?? .lb
+        tmPct = initialTMPct ?? profiles.first?.defaultTrainingMaxPercent ?? 90
+        blockWeeks = isCustom ? program.cycleWeeks : TrainingBlockService.defaultBlockWeeks(for: program)
+        for liftId in program.liftIds where maxes[liftId] == nil {
+            if let seeded = initialMaxes?[liftId], seeded > 0 {
+                maxes[liftId] = seeded
+            } else {
+                maxes[liftId] = defaultMax(liftId)
             }
         }
     }
 
+    // MARK: - Max row
+
+    private func maxRow(_ liftId: String, program: ProgramDefinition) -> some View {
+        let liftName = ExerciseCatalog.displayName(for: liftId)
+        let value = maxes[liftId, default: defaultMax(liftId)]
+        let fromHistory = calculatedMax(liftId, name: liftName)
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(liftName)
+                    .font(.system(size: TypeScale.body, weight: .semibold))
+                    .foregroundStyle(theme.text)
+                HStack(spacing: 4) {
+                    Image(systemName: fromHistory != nil ? "chart.line.uptrend.xyaxis" : "questionmark.circle")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(maxCaption(value: value, fromHistory: fromHistory != nil, program: program))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .font(.system(size: TypeScale.caption, weight: .semibold))
+                .foregroundStyle(theme.text3)
+            }
+
+            Spacer()
+
+            HStack(spacing: Spacing.s2) {
+                Button {
+                    maxes[liftId, default: defaultMax(liftId)] -= unit.increment
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.text)
+                        .frame(width: 32, height: 32)
+                        .background(theme.surface2)
+                        .clipShape(Circle())
+                }
+
+                HStack(spacing: 4) {
+                    WeightField(value: Binding(
+                        get: { maxes[liftId, default: defaultMax(liftId)] },
+                        set: { maxes[liftId] = max(0, $0) }
+                    ), width: 64)
+                    Text(unit.rawValue)
+                        .font(.system(size: TypeScale.caption, weight: .bold))
+                        .foregroundStyle(theme.text3)
+                }
+
+                Button {
+                    maxes[liftId, default: defaultMax(liftId)] += unit.increment
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.onAccent)
+                        .frame(width: 32, height: 32)
+                        .background(Color.accent)
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.s4)
+        .padding(.vertical, Spacing.s3)
+        .background(theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md)
+                .stroke(theme.hairline, lineWidth: 1)
+        )
+        .padding(.horizontal, Spacing.s4)
+    }
+
+    private func maxCaption(value: Double, fromHistory: Bool, program: ProgramDefinition) -> String {
+        var parts = [fromHistory ? "From your 1RM" : "Default"]
+        if program.basis == .trainingMax {
+            let tm = ProgramEngine.basisWeight(oneRM: value, program: program, tmPct: tmPct, unit: unit)
+            parts.append("TM \(WeightFormatter.format(tm))")
+        }
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    // MARK: - Block
+
+    private func blockSection(program: ProgramDefinition) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s3) {
+            if isCustom {
+                HStack(spacing: Spacing.s2) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.accent)
+                    Text("\(program.cycleWeeks)-week block")
+                        .font(.system(size: TypeScale.body, weight: .bold))
+                        .foregroundStyle(theme.text)
+                    Text("\u{00B7} set in the builder")
+                        .font(.system(size: TypeScale.sub))
+                        .foregroundStyle(theme.text3)
+                }
+            } else {
+                HStack(spacing: Spacing.s2) {
+                    ForEach(TrainingBlockService.blockOptions(for: program), id: \.self) { weeks in
+                        Button {
+                            blockWeeks = weeks
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text("\(weeks) weeks")
+                                    .font(.system(size: TypeScale.sub, weight: .bold))
+                                if weeks == program.cycleWeeks {
+                                    Text("1 cycle")
+                                        .font(.system(size: TypeScale.caption, weight: .semibold))
+                                        .opacity(0.8)
+                                }
+                            }
+                            .foregroundStyle(blockWeeks == weeks ? .onAccent : theme.text2)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.s2)
+                            .background(blockWeeks == weeks ? Color.accent : theme.surface2)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Text("Your maxes lock when you activate and every session is built from them. At the end of the block Physique compares them with what you actually lifted and suggests new ones.")
+                .font(.system(size: TypeScale.footnote))
+                .foregroundStyle(theme.text3)
+                .lineSpacing(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(padding: Spacing.s4)
+    }
+
     // MARK: - Week 1 Preview
 
-    /// Expandable per-day preview of the first week, computed from the maxes
-    /// and TM% currently dialed in above.
-    private var weekOnePreview: some View {
+    private func weekOnePreview(program: ProgramDefinition) -> some View {
         // Not inserted into the context — just a throwaway config for the builder.
         let config = ActiveProgram(
             programId: program.id,
@@ -226,7 +383,7 @@ struct ProgramDetailScreen: View {
                                 Text(day.name)
                                     .font(.system(size: TypeScale.body, weight: .bold))
                                     .foregroundStyle(theme.text)
-                                if !isOpen, let summary = daySummary(day) {
+                                if !isOpen, let summary = daySummary(day, program: program) {
                                     Text(summary)
                                         .font(.system(size: TypeScale.footnote))
                                         .foregroundStyle(theme.text2)
@@ -296,7 +453,7 @@ struct ProgramDetailScreen: View {
     }
 
     /// Collapsed one-liner: lift names trained that day.
-    private func daySummary(_ day: SplitDay) -> String? {
+    private func daySummary(_ day: SplitDay, program: ProgramDefinition) -> String? {
         var liftIds: [String] = []
         if let items = day.items {
             liftIds = items.map(\.id)
@@ -306,21 +463,29 @@ struct ProgramDetailScreen: View {
             liftIds = program.liftIds
         }
         guard !liftIds.isEmpty else { return day.sub }
-        let names = liftIds.map { BuiltInPrograms.lifts[$0]?.short ?? $0.capitalized }
-        return names.joined(separator: " \u{00B7} ")
+        return liftIds.map { ExerciseCatalog.shortName(for: $0) }.joined(separator: " \u{00B7} ")
     }
 
+    // MARK: - 1RM sources
+
+    private func calculatedMax(_ liftId: String, name: String) -> Double? {
+        let history = LiftStatsService.history(liftId: liftId, liftName: name, entries: oneRepMaxes, sessions: sessions)
+        return LiftStatsService.currentMax(in: history)
+    }
+
+    /// Prefer the user's current 1RM (tested or calculated from workouts);
+    /// fall back to the program's built-in default, then a conservative bar.
     private func defaultMax(_ liftId: String) -> Double {
-        // Prefer the user's most recent manually-entered 1RM for this lift
-        // (exerciseId == liftId). Fall back to the program's built-in default.
-        if let logged = oneRepMaxes.first(where: { $0.exerciseId == liftId && $0.unit == unit }) {
-            return WeightFormatter.roundToPlate(logged.weight, unit: unit)
+        if let current = calculatedMax(liftId, name: ExerciseCatalog.displayName(for: liftId)) {
+            return WeightFormatter.roundToPlate(current, unit: unit)
         }
-        return BuiltInPrograms.defaults[unit]?[liftId] ?? 135
+        if let builtIn = BuiltInPrograms.defaults[unit]?[liftId] { return builtIn }
+        return unit == .lb ? 95 : 40
     }
 
-    private func activateProgram() {
-        // Remove existing active program
+    // MARK: - Actions
+
+    private func activateProgram(_ program: ProgramDefinition) {
         let descriptor = FetchDescriptor<ActiveProgram>()
         if let existing = try? modelContext.fetch(descriptor) {
             for p in existing { modelContext.delete(p) }
@@ -331,33 +496,65 @@ struct ProgramDetailScreen: View {
             maxes: maxes,
             trainingMaxPercent: tmPct,
             includeWarmups: includeWarmups,
-            unit: unit
+            unit: unit,
+            blockWeeks: max(1, blockWeeks)
         )
+        active.maxesLog = [MaxesSnapshot(date: Date(), maxes: maxes)]
         modelContext.insert(active)
+
+        // The max the lifter states at setup is a real data point: feed it into
+        // the e1RM stream for any lift that has nothing logged yet, so cards
+        // never sit empty. (Lifts with history keep their rolling number.)
+        for (liftId, value) in maxes where value > 0 {
+            let name = ExerciseCatalog.displayName(for: liftId)
+            let stream = LiftStatsService.history(liftId: liftId, liftName: name, entries: oneRepMaxes, sessions: sessions)
+            if stream.isEmpty {
+                modelContext.insert(OneRepMaxEntry(exerciseId: liftId, exerciseName: name, weight: value, unit: unit, date: Date()))
+            }
+        }
+
         // Training a %TM program is template mode; flip coach-mode profiles
         // over so the Plan tab surfaces the new session card.
         profiles.first?.trainingMode = "template"
         try? modelContext.save()
 
-        coordinator.showToast("\(program.name) activated", icon: "checkmark", tone: .success)
+        coordinator.showToast("\(program.name) activated \u{00B7} maxes locked \(blockWeeks) wk", icon: "lock.fill", tone: .success)
         coordinator.selectedTab = .plan
         dismiss()
     }
 
-    private func saveAsTemplate() {
-        let template = WorkoutTemplate(
-            name: program.name,
-            kindRaw: TemplateKind.program.rawValue,
-            programId: program.id,
-            maxes: maxes,
-            trainingMaxPercent: tmPct,
-            includeWarmups: includeWarmups,
-            unit: unit,
-            dayIndex: 0
+    /// Snapshots the day with the maxes dialed in above as a plain template:
+    /// concrete exercises with sets × reps × weight, editable like any other.
+    private func saveDayAsTemplate(_ dayIndex: Int, day: SplitDay, program: ProgramDefinition) {
+        let config = ActiveProgram(
+            programId: program.id, maxes: maxes, trainingMaxPercent: tmPct,
+            includeWarmups: false, currentWeek: 0, unit: unit
         )
+        let session = SessionBuilder.buildSession(program: program, config: config, dayIndex: dayIndex)
+        guard !session.isEmpty else {
+            coordinator.showToast("Set your maxes first", icon: "exclamationmark.triangle")
+            return
+        }
+
+        let template = WorkoutTemplate(name: "\(program.name) \u{00B7} \(day.name)", kindRaw: TemplateKind.custom.rawValue)
         modelContext.insert(template)
+        for (index, exercise) in session.enumerated() {
+            let working = exercise.sets.filter { !$0.type.isWarmup }
+            let item = TemplateItem(
+                orderIndex: index,
+                name: exercise.name,
+                exerciseId: exercise.exId,
+                targetSets: max(1, working.count),
+                targetReps: working.first?.reps ?? 5,
+                targetWeight: working.map(\.weight).max() ?? 0
+            )
+            // Keep each set's own weight × reps (preserves ramps like 5/3/1).
+            item.setSpecs = working.map { TemplateSetSpec(weight: $0.weight, reps: $0.reps) }
+            item.template = template
+            modelContext.insert(item)
+        }
         try? modelContext.save()
 
-        coordinator.showToast("Saved to My Templates", icon: "checkmark", tone: .success)
+        coordinator.showToast("Saved \(day.name) to Templates", icon: "doc.text", tone: .success)
     }
 }

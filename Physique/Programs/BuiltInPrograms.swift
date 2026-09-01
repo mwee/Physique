@@ -10,6 +10,7 @@ struct BuiltInPrograms {
         "deadlift": (name: "Deadlift",         short: "DL"),
         "ohp":      (name: "Overhead Press",   short: "OHP"),
         "row":      (name: "Barbell Row",      short: "ROW"),
+        "pullup":   (name: "Pull Up",          short: "PU"),   // 1RM = added load
     ]
 
     // MARK: - Default Maxes
@@ -21,6 +22,7 @@ struct BuiltInPrograms {
             "deadlift": 182.5,
             "ohp":      70,
             "row":      110,
+            "pullup":   20,
         ],
         .lb: [
             "squat":    355,
@@ -28,6 +30,7 @@ struct BuiltInPrograms {
             "deadlift": 405,
             "ohp":      155,
             "row":      245,
+            "pullup":   45,
         ],
     ]
 
@@ -38,6 +41,7 @@ struct BuiltInPrograms {
         "Powerlifting",
         "Peaking",
         "Linear Progression",
+        "Hypertrophy",
     ]
 
     // MARK: - All Programs
@@ -48,6 +52,7 @@ struct BuiltInPrograms {
         texasMethod,
         madcow,
         smolovJr,
+        tacticalBarbellMass,
     ]
 
     // MARK: - Program Lookup
@@ -229,6 +234,44 @@ struct BuiltInPrograms {
         setHeads: ["Set 1", "Set 2", "Set 3", "Set 4", "Set 5"],
         waved: true,
         weekScale: .multiplicative
+    )
+
+    // MARK: - Tactical Barbell · Mass Protocol (Grey Man)
+
+    /// Physique's rendering of the Mass Protocol's Grey Man template: one
+    /// full-body cluster repeated three times a week, deadlift added once,
+    /// waving 70 → 80% of a *true* 1RM across a 6-week block (volume first,
+    /// then intensity). Tactical Barbell never uses a training max.
+    private static let tacticalBarbellMass = ProgramDefinition(
+        id: "tbmass",
+        name: "Tactical Barbell \u{00B7} Mass",
+        author: "K. Black",
+        glyph: "figure.strengthtraining.traditional",
+        tags: ["Hypertrophy", "Strength"],
+        days: "3 days",
+        cycle: "6-week block",
+        basis: .oneRepMax,
+        layout: .straight,
+        blurb: "The Mass Protocol\u{2019}s Grey Man template. The same cluster \u{2014} squat, bench, weighted pull-up \u{2014} three times a week with deadlift on day 3, waving 70\u{2013}80% of your true 1RM over six weeks: sets of 6 first, then heavier sets of 4\u{2013}5.",
+        cycleWeeks: 6,
+        weekNames: ["Week 1 \u{00B7} 70%", "Week 2 \u{00B7} 75%", "Week 3 \u{00B7} 80%", "Week 4 \u{00B7} 70%", "Week 5 \u{00B7} 75%", "Week 6 \u{00B7} 80%"],
+        split: [
+            SplitDay(name: "Day 1", sub: "Cluster", ids: ["squat", "bench", "pullup"]),
+            SplitDay(name: "Day 2", sub: "Cluster", ids: ["squat", "bench", "pullup"]),
+            SplitDay(name: "Day 3", sub: "Cluster + deadlift", ids: ["squat", "bench", "pullup", "deadlift"]),
+        ],
+        liftIds: ["squat", "bench", "pullup", "deadlift"],
+        blocks: [
+            ProgramBlock(label: "Week 1", sub: "4\u{00D7}6 \u{00B7} 70%", straight: StraightConfig(count: 4, r: 6, p: 0.70)),
+            ProgramBlock(label: "Week 2", sub: "4\u{00D7}6 \u{00B7} 75%", straight: StraightConfig(count: 4, r: 6, p: 0.75)),
+            ProgramBlock(label: "Week 3", sub: "4\u{00D7}5 \u{00B7} 80%", straight: StraightConfig(count: 4, r: 5, p: 0.80)),
+            ProgramBlock(label: "Week 4", sub: "5\u{00D7}6 \u{00B7} 70%", straight: StraightConfig(count: 5, r: 6, p: 0.70)),
+            ProgramBlock(label: "Week 5", sub: "5\u{00D7}5 \u{00B7} 75%", straight: StraightConfig(count: 5, r: 5, p: 0.75)),
+            ProgramBlock(label: "Week 6", sub: "5\u{00D7}4 \u{00B7} 80%", straight: StraightConfig(count: 5, r: 4, p: 0.80)),
+        ],
+        progressNote: "Tactical Barbell runs off a true 1RM \u{2014} there is no training max. After the 6-week block add 5 lb / 2.5 kg to upper-body maxes and 10 lb / 5 kg to lower-body, then run it again. Retest maxes every couple of blocks. Pull-up max is the added load.",
+        waved: true,
+        useWeekBlock: true
     )
 
     // MARK: - Smolov Jr

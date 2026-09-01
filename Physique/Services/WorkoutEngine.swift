@@ -49,10 +49,13 @@ enum WorkoutEngine {
             exercise.bestWeight = maxWeight
         }
 
-        // Append to e1rm history (keep last 8 points)
-        exercise.e1rmHistory.append(maxE1RM)
-        if exercise.e1rmHistory.count > 8 {
-            exercise.e1rmHistory = Array(exercise.e1rmHistory.suffix(8))
+        // Append to e1rm history (keep last 8 points); high-rep-only sessions
+        // produce no estimate and are skipped rather than logged as 0.
+        if maxE1RM > 0 {
+            exercise.e1rmHistory.append(maxE1RM)
+            if exercise.e1rmHistory.count > 8 {
+                exercise.e1rmHistory = Array(exercise.e1rmHistory.suffix(8))
+            }
         }
     }
 

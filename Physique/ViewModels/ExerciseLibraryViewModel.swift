@@ -4,11 +4,15 @@ import SwiftData
 @Observable
 final class ExerciseLibraryViewModel {
     var searchQuery: String = ""
+    /// nil shows every equipment type.
+    var equipmentFilter: ExerciseType?
 
     func filteredExercises(_ exercises: [Exercise]) -> [Exercise] {
-        guard !searchQuery.isEmpty else { return exercises }
-        return exercises.filter {
-            $0.name.localizedCaseInsensitiveContains(searchQuery)
+        exercises.filter { exercise in
+            if let equipmentFilter, exercise.equipmentType != equipmentFilter { return false }
+            if searchQuery.isEmpty { return true }
+            return exercise.name.localizedCaseInsensitiveContains(searchQuery)
+                || exercise.equipmentType.displayName.localizedCaseInsensitiveContains(searchQuery)
         }
     }
 

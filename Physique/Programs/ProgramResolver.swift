@@ -52,6 +52,7 @@ enum ProgramResolver {
         if active.currentDayIndex >= definition.split.count {
             active.currentDayIndex = 0
             active.currentWeek += 1
+            active.weeksInBlock += 1
             if definition.useWeekBlock && active.currentWeek >= definition.cycleWeeks {
                 active.currentWeek = 0
             }

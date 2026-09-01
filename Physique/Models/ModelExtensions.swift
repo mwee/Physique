@@ -3,10 +3,26 @@ import Foundation
 // Computed WeightUnit accessors kept out of @Model files
 // so the SwiftData macro doesn't pick them up as schema properties.
 
+/// The maxes an active program was using from a given date.
+struct MaxesSnapshot: Codable {
+    var date: Date
+    var maxes: [String: Double]
+}
+
 extension ActiveProgram {
     var unit: WeightUnit {
         get { WeightUnit(rawValue: unitRaw) ?? .lb }
         set { unitRaw = newValue.rawValue }
+    }
+
+    /// Chronological log of the maxes in force; falls back to the current
+    /// maxes from activation when nothing has been recorded yet.
+    var maxesLog: [MaxesSnapshot] {
+        get {
+            let decoded = (try? JSONDecoder().decode([MaxesSnapshot].self, from: maxesLogData)) ?? []
+            return decoded.isEmpty ? [MaxesSnapshot(date: activatedAt, maxes: maxes)] : decoded
+        }
+        set { maxesLogData = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 }
 
@@ -72,6 +88,24 @@ extension CoachPlan {
 extension CoachPlanDay {
     var sortedExercises: [CoachPlanExercise] {
         exercises.sorted { $0.orderIndex < $1.orderIndex }
+    }
+}
+
+/// One prescribed set inside a template item.
+struct TemplateSetSpec: Codable, Equatable {
+    var weight: Double
+    var reps: Int
+}
+
+extension TemplateItem {
+    /// Per-set prescriptions; falls back to expanding the uniform targets.
+    var setSpecs: [TemplateSetSpec] {
+        get {
+            let decoded = (try? JSONDecoder().decode([TemplateSetSpec].self, from: setsData)) ?? []
+            if !decoded.isEmpty { return decoded }
+            return (0..<max(1, targetSets)).map { _ in TemplateSetSpec(weight: targetWeight, reps: targetReps) }
+        }
+        set { setsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 }
 

@@ -2,6 +2,8 @@ import SwiftUI
 
 /// Tiny inline trend line for stat tiles and list rows.
 /// The end dot renders gold when the latest value is the all-time high (a PR).
+/// A single value draws as a flat line; a flat series sits mid-height rather
+/// than on the baseline so it never reads as an empty placeholder.
 struct SparklineView: View {
     let data: [Double]
     var height: CGFloat = 20
@@ -37,15 +39,16 @@ struct SparklineView: View {
     }
 
     private func normalizedPoints(in size: CGSize) -> [CGPoint] {
-        guard data.count >= 2,
-              let min = data.min(), let max = data.max() else { return [] }
-        let range = max - min == 0 ? 1 : max - min
+        guard let min = data.min(), let max = data.max() else { return [] }
+        let series = data.count == 1 ? [data[0], data[0]] : data
+        let range = max - min
         let inset: CGFloat = 3
-        let stepX = (size.width - 2 * inset) / CGFloat(data.count - 1)
-        return data.enumerated().map { index, value in
-            CGPoint(
+        let stepX = (size.width - 2 * inset) / CGFloat(series.count - 1)
+        return series.enumerated().map { index, value in
+            let t: CGFloat = range == 0 ? 0.5 : CGFloat((value - min) / range)
+            return CGPoint(
                 x: inset + CGFloat(index) * stepX,
-                y: size.height - inset - CGFloat((value - min) / range) * (size.height - 2 * inset)
+                y: size.height - inset - t * (size.height - 2 * inset)
             )
         }
     }

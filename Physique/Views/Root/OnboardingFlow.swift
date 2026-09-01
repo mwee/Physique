@@ -98,6 +98,8 @@ struct OnboardingFlow: View {
             scheduleStep
         case .equipment:
             equipmentStep
+        case .maxes:
+            maxesStep
         case .path:
             pathStep
         case .ready:
@@ -308,6 +310,58 @@ struct OnboardingFlow: View {
         .padding(.top, Spacing.s6)
     }
 
+    private var maxesStep: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("What are your maxes?")
+                .font(.system(size: 27, weight: .bold))
+                .foregroundStyle(theme.text)
+            Text("Your best single on each lift \u{2014} not a training max. Programs derive their own TM from this (5/3/1 uses 90%). Leave blank if you don\u{2019}t know.")
+                .font(.system(size: TypeScale.body))
+                .foregroundStyle(theme.text2)
+                .padding(.top, Spacing.s2)
+
+            VStack(spacing: 0) {
+                ForEach(Array(OnboardingViewModel.bigLifts.enumerated()), id: \.element.id) { index, lift in
+                    HStack {
+                        Text(lift.name)
+                            .font(.system(size: TypeScale.body, weight: .semibold))
+                            .foregroundStyle(theme.text)
+                        Spacer()
+                        TextField("\u{2014}", text: Binding(
+                            get: { vm.maxes[lift.id] ?? "" },
+                            set: { vm.maxes[lift.id] = $0 }
+                        ))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: TypeScale.body, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(theme.text)
+                        .frame(width: 84)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.s2)
+                        .background(theme.surface2)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                        Text(vm.units.displayName)
+                            .font(.system(size: TypeScale.sub, weight: .semibold))
+                            .foregroundStyle(theme.text3)
+                            .frame(width: 24, alignment: .leading)
+                    }
+                    .padding(.horizontal, Spacing.s4)
+                    .padding(.vertical, Spacing.s3)
+                    if index < OnboardingViewModel.bigLifts.count - 1 {
+                        Divider().background(theme.hairline).padding(.leading, Spacing.s4)
+                    }
+                }
+            }
+            .background(theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(theme.hairline, lineWidth: 1))
+            .padding(.top, Spacing.s6)
+        }
+        .padding(.horizontal, Spacing.s5)
+        .padding(.top, Spacing.s6)
+    }
+
     private var pathStep: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("How do you want to train?")
@@ -362,6 +416,7 @@ struct OnboardingFlow: View {
                 summaryRow("Schedule", "\(vm.daysPerWeek) days / week")
                 summaryRow("Units", vm.units.rawValue)
                 summaryRow("Equipment", vm.equipmentDisplayName)
+                summaryRow("Maxes", vm.maxesDisplayName)
                 summaryRow("Mode", vm.modeDisplayName)
             }
             .background(theme.surface)

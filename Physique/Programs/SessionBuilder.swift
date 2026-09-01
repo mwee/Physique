@@ -35,8 +35,7 @@ enum SessionBuilder {
             guard let oneRM = config.maxes[liftId], oneRM > 0 else { continue }
 
             let block = program.blocks[resolvedBlockIndex(blockIndex, program: program, week: week)]
-            let liftInfo = BuiltInPrograms.lifts[liftId]
-            let exerciseName = liftInfo?.name ?? liftId.capitalized
+            let exerciseName = ExerciseCatalog.displayName(for: liftId)
 
             var sets: [ActiveSet] = []
             var setCounter = 0

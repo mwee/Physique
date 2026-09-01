@@ -20,6 +20,8 @@ struct PillView: View {
         }
         .font(.system(size: TypeScale.footnote, weight: .bold))
         .monospacedDigit()
+        .lineLimit(1)
+        .fixedSize()
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
         .background(backgroundColor)

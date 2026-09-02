@@ -104,25 +104,21 @@ struct PlanScreen: View {
         }
     }
 
-    /// Section heading with an icon, a kind pill and a one-line explainer so
-    /// programs and templates read as clearly different things.
+    /// Section heading with an icon, a kind pill and an info button that
+    /// reveals a short explainer, so programs and templates read as clearly
+    /// different things without the copy taking permanent space.
     private func sectionHeader(icon: String, title: String, kind: String, tone: PillTone, blurb: String) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.s1) {
-            HStack(spacing: Spacing.s2) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(tone == .accent ? Color.accent : theme.text2)
-                Text(title.uppercased())
-                    .font(.system(size: TypeScale.caption, weight: .semibold))
-                    .foregroundStyle(theme.text3)
-                    .tracking(0.8)
-                PillView(text: kind, tone: tone)
-                Spacer()
-            }
-            Text(blurb)
-                .font(.system(size: TypeScale.footnote))
+        HStack(spacing: Spacing.s2) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(tone == .accent ? Color.accent : theme.text2)
+            Text(title.uppercased())
+                .font(.system(size: TypeScale.caption, weight: .semibold))
                 .foregroundStyle(theme.text3)
-                .fixedSize(horizontal: false, vertical: true)
+                .tracking(0.8)
+            PillView(text: kind, tone: tone)
+            InfoPopoverButton(text: blurb, accessibilityLabel: "About \(title.lowercased())")
+            Spacer()
         }
         .padding(.horizontal, Spacing.s5)
     }
